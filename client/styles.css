@@ -23,7 +23,6 @@ body {
 header {
     text-align: center;
     margin-bottom: 40px;
-    padding: 20px 0;
 }
 
 header h1 {
@@ -143,7 +142,6 @@ header p {
 .add-todo-section {
     text-align: center;
     margin-bottom: 40px;
-    padding: 30px 0;
 }
 
 /* Controls section */
