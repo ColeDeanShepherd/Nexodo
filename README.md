@@ -97,6 +97,57 @@ cd server
 python app.py
 ```
 
+## 🚀 Railway Deployment
+
+Deploy your Nexodo app to Railway for free hosting:
+
+### Prerequisites
+- GitHub account
+- Railway account (sign up at [railway.app](https://railway.app))
+
+### Deployment Steps
+
+1. **Push to GitHub** (if not already done):
+   ```bash
+   git add .
+   git commit -m "Prepare for Railway deployment"
+   git push origin main
+   ```
+
+2. **Deploy on Railway**:
+   - Go to [railway.app](https://railway.app) and sign in with GitHub
+   - Click "Start a New Project"
+   - Select "Deploy from GitHub repo"
+   - Choose your Nexodo repository
+   - Railway will automatically detect it's a Python app
+
+3. **Add PostgreSQL Database**:
+   - In your Railway project dashboard, click "New"
+   - Select "Database" → "Add PostgreSQL"
+   - Railway will automatically set the `DATABASE_URL` environment variable
+
+4. **Set Environment Variables** (in Railway dashboard):
+   - `FLASK_ENV=production`
+   - `PORT` (automatically set by Railway)
+   - `DATABASE_URL` (automatically set when you add PostgreSQL)
+
+5. **Deploy**:
+   - Railway will automatically build and deploy your app
+   - You'll get a URL like `nexodo-production-abcd.up.railway.app`
+
+### Production Features
+- ✅ PostgreSQL database (much more robust than SQLite)
+- ✅ Automatic HTTPS
+- ✅ Custom domain support (if you have one)
+- ✅ Automatic deployments on git push
+- ✅ Environment variable management
+- ✅ Free tier: 500 hours/month, $5 credit monthly
+
+### Local Development vs Production
+- **Local**: Uses SQLite database, debug mode enabled
+- **Production**: Uses PostgreSQL, optimized for performance
+- **Both**: Same codebase, environment variables control the behavior
+
 ## API Documentation
 
 The REST API provides the following endpoints:

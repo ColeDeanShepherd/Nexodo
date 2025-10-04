@@ -5,7 +5,19 @@ from datetime import datetime
 import os
 
 app = Flask(__name__, static_folder='../client', static_url_path='')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todos.db'
+
+# Database configuration - use PostgreSQL in production, SQLite in development
+if os.environ.get('DATABASE_URL'):
+    # Production - Railway PostgreSQL
+    database_url = os.environ.get('DATABASE_URL')
+    # Handle Railway's postgres:// vs postgresql:// URL format
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    # Development - SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todos.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -110,4 +122,7 @@ with app.app_context():
     db.create_all()
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Use environment variables for production deployment
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    app.run(debug=debug, host='0.0.0.0', port=port)
