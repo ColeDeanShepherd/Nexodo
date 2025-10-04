@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexodo - Todo App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 Nexodo</h1>
+            <p>A simple and elegant todo application</p>
+        </header>
+
+        <main>
+            <!-- Add Todo Form -->
+            <section class="add-todo-section">
+                <h2>Add New Todo</h2>
+                <form id="add-todo-form" class="todo-form">
+                    <div class="form-group">
+                        <label for="todo-description">Description:</label>
+                        <input type="text" id="todo-description" name="description" placeholder="Enter todo description..." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="todo-deadline">Deadline (optional):</label>
+                        <input type="datetime-local" id="todo-deadline" name="deadline">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Todo</button>
+                </form>
+            </section>
+
+            <!-- Todo Controls -->
+            <section class="controls">
+                <div class="filters">
+                    <button id="show-all" class="btn btn-secondary active">All</button>
+                    <button id="show-active" class="btn btn-secondary">Active</button>
+                    <button id="show-completed" class="btn btn-secondary">Completed</button>
+                </div>
+                <div class="stats">
+                    <span id="todo-count">0 todos</span>
+                </div>
+            </section>
+
+            <!-- Todo List -->
+            <section class="todo-list-section">
+                <div id="loading" class="loading hidden">Loading todos...</div>
+                <div id="error-message" class="error-message hidden"></div>
+                <ul id="todo-list" class="todo-list">
+                    <!-- Todos will be dynamically added here -->
+                </ul>
+                <div id="empty-state" class="empty-state hidden">
+                    <p>No todos yet. Add one above to get started!</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Edit Todo Modal -->
+        <div id="edit-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Edit Todo</h3>
+                    <button id="close-modal" class="close-btn">&times;</button>
+                </div>
+                <form id="edit-todo-form" class="todo-form">
+                    <input type="hidden" id="edit-todo-id" name="id">
+                    <div class="form-group">
+                        <label for="edit-todo-description">Description:</label>
+                        <input type="text" id="edit-todo-description" name="description" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-todo-deadline">Deadline (optional):</label>
+                        <input type="datetime-local" id="edit-todo-deadline" name="deadline">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" id="cancel-edit" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

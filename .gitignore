@@ -36,6 +36,26 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Database
+instance/
+*.db
+*.sqlite3
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Node.js (if we add any JS tooling later)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
