@@ -14,6 +14,7 @@ const addModal = document.getElementById('add-modal');
 
 // Button elements
 const openAddModalBtn = document.getElementById('open-add-modal');
+const logoutBtn = document.getElementById('logout-btn');
 
 // Filter buttons
 const showAllBtn = document.getElementById('show-all');
@@ -31,7 +32,14 @@ let todos = [];
 let currentFilter = 'all'; // 'all', 'active', 'completed'
 
 // Initialize the app
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check authentication status first
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) {
+        window.location.href = '/login.html';
+        return;
+    }
+    
     loadTodos();
     setupEventListeners();
     setFilter('active');
@@ -41,6 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupEventListeners() {
     addTodoForm.addEventListener('submit', handleAddTodo);
     editTodoForm.addEventListener('submit', handleEditTodo);
+    
+    // Authentication controls
+    logoutBtn.addEventListener('click', logout);
     
     // Add modal controls
     openAddModalBtn.addEventListener('click', openAddModal);
@@ -71,6 +82,28 @@ function setupEventListeners() {
     });
 }
 
+// Authentication Functions
+async function checkAuth() {
+    try {
+        const response = await fetch('/api/auth-status');
+        const data = await response.json();
+        return data.authenticated;
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        return false;
+    }
+}
+
+async function logout() {
+    try {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/login.html';
+    } catch (error) {
+        console.error('Logout failed:', error);
+        window.location.href = '/login.html';
+    }
+}
+
 // API Functions
 async function apiCall(endpoint, options = {}) {
     try {
@@ -81,6 +114,12 @@ async function apiCall(endpoint, options = {}) {
             },
             ...options
         });
+        
+        if (response.status === 401) {
+            // Unauthorized - redirect to login
+            window.location.href = '/login.html';
+            return;
+        }
         
         if (!response.ok) {
             const error = await response.json();

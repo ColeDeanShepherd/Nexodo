@@ -21,19 +21,32 @@ body {
 
 /* Header */
 header {
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 40px;
+    padding: 20px 0;
 }
 
-header h1 {
+.header-content {
+    text-align: left;
+}
+
+.header-content h1 {
     font-size: 2.5rem;
     color: #2c3e50;
     margin-bottom: 10px;
 }
 
-header p {
+.header-content p {
     color: #7f8c8d;
     font-size: 1.1rem;
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
 }
 
 /* Form styles */
@@ -392,4 +405,98 @@ input:focus,
 .todo-checkbox:focus {
     outline: 2px solid #3498db;
     outline-offset: 2px;
+}
+
+/* Login Page Styles */
+.login-body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.login-container {
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    animation: slideInUp 0.6s ease-out;
+}
+
+.login-header {
+    text-align: center;
+    padding: 40px 30px 20px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.login-header h1 {
+    font-size: 2.5rem;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.login-header p {
+    color: #7f8c8d;
+    font-size: 1rem;
+}
+
+.login-form {
+    padding: 30px;
+}
+
+.login-form .form-group {
+    margin-bottom: 25px;
+}
+
+.login-form .btn-large {
+    width: 100%;
+    margin-top: 10px;
+    font-size: 1.1rem;
+    padding: 16px;
+}
+
+.login-footer {
+    text-align: center;
+    padding: 20px 30px 30px;
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    border-top: 1px solid #ecf0f1;
+}
+
+/* Login animations */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Login responsive design */
+@media (max-width: 480px) {
+    .login-container {
+        padding: 0 10px;
+    }
+    
+    .login-header {
+        padding: 30px 20px 15px;
+    }
+    
+    .login-header h1 {
+        font-size: 2rem;
+    }
+    
+    .login-form {
+        padding: 20px;
+    }
 }
