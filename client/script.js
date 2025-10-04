@@ -10,6 +10,10 @@ const errorElement = document.getElementById('error-message');
 const emptyState = document.getElementById('empty-state');
 const editModal = document.getElementById('edit-modal');
 const editTodoForm = document.getElementById('edit-todo-form');
+const addModal = document.getElementById('add-modal');
+
+// Button elements
+const openAddModalBtn = document.getElementById('open-add-modal');
 
 // Filter buttons
 const showAllBtn = document.getElementById('show-all');
@@ -18,7 +22,9 @@ const showCompletedBtn = document.getElementById('show-completed');
 
 // Modal elements
 const closeModalBtn = document.getElementById('close-modal');
+const closeAddModalBtn = document.getElementById('close-add-modal');
 const cancelEditBtn = document.getElementById('cancel-edit');
+const cancelAddBtn = document.getElementById('cancel-add');
 
 // State
 let todos = [];
@@ -35,12 +41,20 @@ function setupEventListeners() {
     addTodoForm.addEventListener('submit', handleAddTodo);
     editTodoForm.addEventListener('submit', handleEditTodo);
     
+    // Add modal controls
+    openAddModalBtn.addEventListener('click', openAddModal);
+    closeAddModalBtn.addEventListener('click', closeAddModal);
+    cancelAddBtn.addEventListener('click', closeAddModal);
+    addModal.addEventListener('click', (e) => {
+        if (e.target === addModal) closeAddModal();
+    });
+    
     // Filter buttons
     showAllBtn.addEventListener('click', () => setFilter('all'));
     showActiveBtn.addEventListener('click', () => setFilter('active'));
     showCompletedBtn.addEventListener('click', () => setFilter('completed'));
     
-    // Modal controls
+    // Edit modal controls
     closeModalBtn.addEventListener('click', closeEditModal);
     cancelEditBtn.addEventListener('click', closeEditModal);
     editModal.addEventListener('click', (e) => {
@@ -49,7 +63,10 @@ function setupEventListeners() {
     
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeEditModal();
+        if (e.key === 'Escape') {
+            closeEditModal();
+            closeAddModal();
+        }
     });
 }
 
@@ -146,6 +163,7 @@ async function handleAddTodo(e) {
         });
         
         e.target.reset();
+        closeAddModal();
         hideError();
     } catch (error) {
         console.error('Failed to add todo:', error);
@@ -335,6 +353,17 @@ function openEditModal(id) {
 function closeEditModal() {
     editModal.classList.add('hidden');
     editTodoForm.reset();
+}
+
+function openAddModal() {
+    addModal.classList.remove('hidden');
+    document.getElementById('todo-description').focus();
+}
+
+function closeAddModal() {
+    addModal.classList.add('hidden');
+    addTodoForm.reset();
+    hideError();
 }
 
 function showLoading(show) {
