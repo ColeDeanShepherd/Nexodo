@@ -34,6 +34,7 @@ let currentFilter = 'all'; // 'all', 'active', 'completed'
 document.addEventListener('DOMContentLoaded', () => {
     loadTodos();
     setupEventListeners();
+    setFilter('active');
 });
 
 // Event Listeners
@@ -274,7 +275,6 @@ function createTodoElement(todo) {
                 </div>
             </div>
             <div class="todo-meta">
-                <div>Created: ${formatDate(new Date(todo.created_at))}</div>
                 ${deadlineText ? `<div class="todo-deadline ${deadlineClass}">${deadlineText}</div>` : ''}
             </div>
         </li>
@@ -316,7 +316,6 @@ function setFilter(filter) {
 }
 
 function updateStats() {
-    const filteredTodos = getFilteredTodos();
     const activeTodos = todos.filter(todo => !todo.completed);
     
     let text;
