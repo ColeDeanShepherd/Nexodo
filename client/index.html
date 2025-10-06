@@ -27,12 +27,32 @@
                 </button>
             </section>
 
+            <!-- Categories Section -->
+            <section class="categories-section">
+                <div class="categories-header">
+                    <h3>📁 Categories</h3>
+                    <button id="manage-categories-btn" class="btn btn-secondary">
+                        ⚙️ Manage
+                    </button>
+                </div>
+                <div id="categories-list" class="categories-list">
+                    <!-- Categories will be dynamically loaded here -->
+                </div>
+            </section>
+
             <!-- Todo Controls -->
             <section class="controls">
                 <div class="filters">
                     <button id="show-all" class="btn btn-secondary active">All</button>
                     <button id="show-active" class="btn btn-secondary">Active</button>
                     <button id="show-completed" class="btn btn-secondary">Completed</button>
+                </div>
+                <div class="category-filter">
+                    <label for="category-filter-select">Filter by category:</label>
+                    <select id="category-filter-select">
+                        <option value="">All Categories</option>
+                        <!-- Categories will be dynamically loaded here -->
+                    </select>
                 </div>
                 <div class="stats">
                     <span id="todo-count">0 todos</span>
@@ -59,21 +79,34 @@
                     <h3>Edit Todo</h3>
                     <button id="close-modal" class="close-btn">&times;</button>
                 </div>
-                <form id="edit-todo-form" class="todo-form">
-                    <input type="hidden" id="edit-todo-id" name="id">
-                    <div class="form-group">
-                        <label for="edit-todo-description">Description:</label>
-                        <input type="text" id="edit-todo-description" name="description" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-todo-deadline">Deadline (optional):</label>
-                        <input type="datetime-local" id="edit-todo-deadline" name="deadline">
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" id="cancel-edit" class="btn btn-secondary">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                    </div>
-                </form>
+                            <form id="edit-todo-form" class="todo-form">
+                <input type="hidden" id="edit-todo-id" name="id">
+                <div class="form-group">
+                    <label for="edit-todo-description">Description:</label>
+                    <input type="text" id="edit-todo-description" name="description" placeholder="Enter todo description..." required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-todo-category">Category (optional):</label>
+                    <select id="edit-todo-category" name="category_id">
+                        <option value="">No category</option>
+                        <!-- Categories will be dynamically loaded here -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-todo-deadline">Deadline (optional):</label>
+                    <input type="datetime-local" id="edit-todo-deadline" name="deadline">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="edit-todo-completed" name="completed">
+                        Mark as completed
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-edit" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
             </div>
         </div>
 
@@ -90,6 +123,13 @@
                         <input type="text" id="todo-description" name="description" placeholder="Enter todo description..." required>
                     </div>
                     <div class="form-group">
+                        <label for="todo-category">Category (optional):</label>
+                        <select id="todo-category" name="category_id">
+                            <option value="">No category</option>
+                            <!-- Categories will be dynamically loaded here -->
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="todo-deadline">Deadline (optional):</label>
                         <input type="datetime-local" id="todo-deadline" name="deadline">
                     </div>
@@ -100,8 +140,43 @@
                 </form>
             </div>
         </div>
+
+        <!-- Category Management Modal -->
+        <div id="categories-modal" class="modal hidden">
+            <div class="modal-content modal-large">
+                <div class="modal-header">
+                    <h3>Manage Categories</h3>
+                    <button id="close-categories-modal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Add New Category Form -->
+                    <form id="add-category-form" class="category-form">
+                        <h4>Add New Category</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="category-name">Name:</label>
+                                <input type="text" id="category-name" name="name" placeholder="Category name..." required>
+                            </div>
+                            <div class="form-group">
+                                <label for="category-color">Color:</label>
+                                <input type="color" id="category-color" name="color" value="#3498db">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add</button>
+                        </div>
+                    </form>
+
+                    <!-- Existing Categories -->
+                    <div class="existing-categories">
+                        <h4>Existing Categories</h4>
+                        <div id="categories-management-list" class="categories-management-list">
+                            <!-- Categories will be dynamically loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js" defer></script>
 </body>
 </html>

@@ -37,6 +37,7 @@ class Todo(db.Model):
     description = db.Column(db.String(200), nullable=False)
     completed = db.Column(db.Boolean, default=False, nullable=False)
     deadline = db.Column(db.DateTime, nullable=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -46,8 +47,28 @@ class Todo(db.Model):
             'description': self.description,
             'completed': self.completed,
             'deadline': self.deadline.isoformat() if self.deadline else None,
+            'category_id': self.category_id,
+            'category': self.category.to_dict() if self.category else None,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
+        }
+
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False, unique=True)
+    color = db.Column(db.String(7), nullable=False, default='#3498db')  # Hex color code
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationship with todos
+    todos = db.relationship('Todo', backref='category', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'color': self.color,
+            'created_at': self.created_at.isoformat(),
+            'todo_count': len(self.todos)
         }
 
 # Authentication functions
@@ -107,7 +128,87 @@ def auth_status():
     
     return jsonify({'authenticated': True}), 200
 
-# API Routes
+# Category API Routes
+@app.route('/api/categories', methods=['GET'])
+@login_required
+def get_categories():
+    """Get all categories"""
+    categories = Category.query.order_by(Category.created_at.asc()).all()
+    return jsonify([category.to_dict() for category in categories])
+
+@app.route('/api/categories', methods=['POST'])
+@login_required
+def create_category():
+    """Create a new category"""
+    data = request.get_json()
+    
+    if not data or 'name' not in data:
+        return jsonify({'error': 'Category name is required'}), 400
+    
+    name = data['name'].strip()
+    if not name:
+        return jsonify({'error': 'Category name cannot be empty'}), 400
+    
+    # Check if category already exists
+    existing_category = Category.query.filter_by(name=name).first()
+    if existing_category:
+        return jsonify({'error': 'Category already exists'}), 400
+    
+    color = data.get('color', '#3498db')
+    
+    category = Category(name=name, color=color)
+    db.session.add(category)
+    db.session.commit()
+    
+    return jsonify(category.to_dict()), 201
+
+@app.route('/api/categories/<int:category_id>', methods=['PUT'])
+@login_required
+def update_category(category_id):
+    """Update an existing category"""
+    category = Category.query.get_or_404(category_id)
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    if 'name' in data:
+        name = data['name'].strip()
+        if not name:
+            return jsonify({'error': 'Category name cannot be empty'}), 400
+        
+        # Check if another category with this name exists
+        existing_category = Category.query.filter(
+            Category.name == name, 
+            Category.id != category_id
+        ).first()
+        if existing_category:
+            return jsonify({'error': 'Category name already exists'}), 400
+        
+        category.name = name
+    
+    if 'color' in data:
+        category.color = data['color']
+    
+    db.session.commit()
+    return jsonify(category.to_dict())
+
+@app.route('/api/categories/<int:category_id>', methods=['DELETE'])
+@login_required
+def delete_category(category_id):
+    """Delete a category"""
+    category = Category.query.get_or_404(category_id)
+    
+    # Check if category has todos
+    if category.todos:
+        return jsonify({'error': 'Cannot delete category that contains todos'}), 400
+    
+    db.session.delete(category)
+    db.session.commit()
+    
+    return '', 204
+
+# Todo API Routes
 @app.route('/api/todos', methods=['GET'])
 @login_required
 def get_todos():
@@ -131,9 +232,17 @@ def create_todo():
         except ValueError:
             return jsonify({'error': 'Invalid deadline format'}), 400
     
+    # Handle category assignment
+    category_id = data.get('category_id')
+    if category_id:
+        category = Category.query.get(category_id)
+        if not category:
+            return jsonify({'error': 'Invalid category'}), 400
+    
     todo = Todo(
         description=data['description'],
-        deadline=deadline
+        deadline=deadline,
+        category_id=category_id
     )
     
     db.session.add(todo)
@@ -166,6 +275,14 @@ def update_todo(todo_id):
         else:
             todo.deadline = None
     
+    if 'category_id' in data:
+        category_id = data['category_id']
+        if category_id:
+            category = Category.query.get(category_id)
+            if not category:
+                return jsonify({'error': 'Invalid category'}), 400
+        todo.category_id = category_id
+    
     todo.updated_at = datetime.utcnow()
     db.session.commit()
     
@@ -195,6 +312,16 @@ def serve_login():
 # Initialize database
 with app.app_context():
     db.create_all()
+    
+    # Create default categories if they don't exist
+    if Category.query.count() == 0:
+        default_categories = [
+            Category(name='Personal', color='#3498db'),
+            Category(name='Work', color='#e74c3c')
+        ]
+        for category in default_categories:
+            db.session.add(category)
+        db.session.commit()
 
 if __name__ == '__main__':
     # Use environment variables for production deployment
