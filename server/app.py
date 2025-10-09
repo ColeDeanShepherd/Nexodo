@@ -1,10 +1,11 @@
-from flask import Flask, request, jsonify, session, Blueprint, send_from_directory
+from flask import Flask, request, jsonify, session, Blueprint, send_from_directory, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from flask_cors import CORS
 from datetime import datetime, timedelta
+from typing import Dict, Any, List, Optional, Union, Tuple, Callable
 import os
 from functools import wraps
 
@@ -31,7 +32,7 @@ class Todo(Base):
     # Relationship
     category = relationship("Category", back_populates="todos")
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
             'description': self.description,
@@ -54,7 +55,7 @@ class Category(Base):
     # Relationship with todos
     todos = relationship('Todo', back_populates='category')
     
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
             'name': self.name,
@@ -67,9 +68,9 @@ class Category(Base):
 db = None
 
 # Authentication functions
-def login_required(f):
+def login_required(f: Callable) -> Callable:
     @wraps(f)
-    def decorated_function(*args, **kwargs):
+    def decorated_function(*args: Any, **kwargs: Any) -> Union[Response, Tuple[Response, int]]:
         if not session.get('authenticated') or not session.get('login_time'):
             return jsonify({'error': 'Authentication required'}), 401
         
@@ -82,7 +83,7 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def verify_password(password):
+def verify_password(password: str) -> bool:
     """Verify if the provided password matches the app password"""
     return password == APP_PASSWORD
 
@@ -94,7 +95,7 @@ client_bp = Blueprint('client', __name__)
 
 # Authentication Routes
 @auth_bp.route('/login', methods=['POST'])
-def login():
+def login() -> Tuple[Response, int]:
     """Authenticate user with password"""
     data = request.get_json()
     
@@ -110,13 +111,13 @@ def login():
         return jsonify({'error': 'Invalid password'}), 401
 
 @auth_bp.route('/logout', methods=['POST'])
-def logout():
+def logout() -> Tuple[Response, int]:
     """Clear the user session"""
     session.clear()
     return jsonify({'success': True, 'message': 'Logged out successfully'}), 200
 
 @auth_bp.route('/auth-status', methods=['GET'])
-def auth_status():
+def auth_status() -> Tuple[Response, int]:
     """Check if user is authenticated"""
     if not session.get('authenticated') or not session.get('login_time'):
         return jsonify({'authenticated': False}), 200
@@ -132,14 +133,14 @@ def auth_status():
 # Category API Routes
 @categories_bp.route('/categories', methods=['GET'])
 @login_required
-def get_categories():
+def get_categories() -> Response:
     """Get all categories"""
     categories = Category.query.order_by(Category.created_at.asc()).all()
     return jsonify([category.to_dict() for category in categories])
 
 @categories_bp.route('/categories', methods=['POST'])
 @login_required
-def create_category():
+def create_category() -> Tuple[Response, int]:
     """Create a new category"""
     data = request.get_json()
     
@@ -165,7 +166,7 @@ def create_category():
 
 @categories_bp.route('/categories/<int:category_id>', methods=['PUT'])
 @login_required
-def update_category(category_id):
+def update_category(category_id: int) -> Union[Response, Tuple[Response, int]]:
     """Update an existing category"""
     category = Category.query.get_or_404(category_id)
     data = request.get_json()
@@ -196,7 +197,7 @@ def update_category(category_id):
 
 @categories_bp.route('/categories/<int:category_id>', methods=['DELETE'])
 @login_required
-def delete_category(category_id):
+def delete_category(category_id: int) -> Union[Tuple[str, int], Tuple[Response, int]]:
     """Delete a category"""
     category = Category.query.get_or_404(category_id)
     
@@ -212,21 +213,21 @@ def delete_category(category_id):
 # Todo API Routes
 @todos_bp.route('/todos', methods=['GET'])
 @login_required
-def get_todos():
+def get_todos() -> Response:
     """Get all todos"""
     todos = Todo.query.order_by(Todo.created_at.desc()).all()
     return jsonify([todo.to_dict() for todo in todos])
 
 @todos_bp.route('/todos', methods=['POST'])
 @login_required
-def create_todo():
+def create_todo() -> Tuple[Response, int]:
     """Create a new todo"""
     data = request.get_json()
     
     if not data or 'description' not in data:
         return jsonify({'error': 'Description is required'}), 400
     
-    deadline = None
+    deadline: Optional[datetime] = None
     if data.get('deadline'):
         try:
             deadline = datetime.fromisoformat(data['deadline'].replace('Z', '+00:00'))
@@ -253,7 +254,7 @@ def create_todo():
 
 @todos_bp.route('/todos/<int:todo_id>', methods=['PUT'])
 @login_required
-def update_todo(todo_id):
+def update_todo(todo_id: int) -> Union[Response, Tuple[Response, int]]:
     """Update an existing todo"""
     todo = Todo.query.get_or_404(todo_id)
     data = request.get_json()
@@ -291,7 +292,7 @@ def update_todo(todo_id):
 
 @todos_bp.route('/todos/<int:todo_id>', methods=['DELETE'])
 @login_required
-def delete_todo(todo_id):
+def delete_todo(todo_id: int) -> Tuple[str, int]:
     """Delete a todo"""
     todo = Todo.query.get_or_404(todo_id)
     db.session.delete(todo)
@@ -301,12 +302,12 @@ def delete_todo(todo_id):
 
 # Client Routes (Static File Serving)
 @client_bp.route('/')
-def serve_client():
+def serve_client() -> Response:
     """Serve the main web client"""
     return send_from_directory(CLIENT_DIR, 'index.html')
 
 @client_bp.route('/login.html')
-def serve_login():
+def serve_login() -> Response:
     """Serve the login page"""
     return send_from_directory(CLIENT_DIR, 'login.html')
 
