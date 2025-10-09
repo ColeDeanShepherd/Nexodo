@@ -8,15 +8,49 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Union, Tuple, Callable
 import os
 from functools import wraps
+from dataclasses import dataclass
 
-# Client directory path
-CLIENT_DIR = '../client'
+@dataclass
+class Config:
+    """Application configuration from environment variables"""
+    secret_key: str
+    app_password: str
+    database_url: str
+    port: int # Only used when debugging
+    debug: bool
+    client_dir: str
+    session_lifetime_hours: int
+    
+    @classmethod
+    def from_env(cls) -> 'Config':
+        """Create config from environment variables"""
+        # Database URL handling
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            # Handle Railway's postgres:// vs postgresql:// URL format
+            if database_url.startswith('postgres://'):
+                database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        else:
+            # Development - SQLite
+            database_url = 'sqlite:///todos.db'
+        
+        return cls(
+            secret_key=os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production'),
+            app_password=os.environ.get('APP_PASSWORD', 'nexodo123'),
+            database_url=database_url,
+            port=int(os.environ.get('PORT', 5000)),
+            debug=os.environ.get('FLASK_ENV') != 'production',
+            client_dir='../client',
+            session_lifetime_hours=24
+        )
 
-# Authentication configuration
-APP_PASSWORD = os.environ.get('APP_PASSWORD', 'nexodo123')  # Default password for development
+# Initialize configuration
+config = Config.from_env()
 
 # Create declarative base for models
 Base = declarative_base()
+
+db = None
 
 class Todo(Base):
     __tablename__ = 'todo'
@@ -64,9 +98,6 @@ class Category(Base):
             'todo_count': len(self.todos)
         }
 
-# Initialize Flask-SQLAlchemy with our models
-db = None
-
 # Authentication functions
 def login_required(f: Callable) -> Callable:
     @wraps(f)
@@ -74,9 +105,9 @@ def login_required(f: Callable) -> Callable:
         if not session.get('authenticated') or not session.get('login_time'):
             return jsonify({'error': 'Authentication required'}), 401
         
-        # Check if session has expired (24 hours)
+        # Check if session has expired
         login_time = datetime.fromisoformat(session['login_time'])
-        if datetime.utcnow() - login_time > timedelta(hours=24):
+        if datetime.utcnow() - login_time > timedelta(hours=config.session_lifetime_hours):
             session.clear()
             return jsonify({'error': 'Session expired'}), 401
         
@@ -85,7 +116,7 @@ def login_required(f: Callable) -> Callable:
 
 def verify_password(password: str) -> bool:
     """Verify if the provided password matches the app password"""
-    return password == APP_PASSWORD
+    return password == config.app_password
 
 # Create Blueprints
 auth_bp = Blueprint('auth', __name__, url_prefix='/api')
@@ -124,7 +155,7 @@ def auth_status() -> Tuple[Response, int]:
     
     # Check if session has expired
     login_time = datetime.fromisoformat(session['login_time'])
-    if datetime.utcnow() - login_time > timedelta(hours=24):
+    if datetime.utcnow() - login_time > timedelta(hours=config.session_lifetime_hours):
         session.clear()
         return jsonify({'authenticated': False}), 200
     
@@ -304,30 +335,21 @@ def delete_todo(todo_id: int) -> Tuple[str, int]:
 @client_bp.route('/')
 def serve_client() -> Response:
     """Serve the main web client"""
-    return send_from_directory(CLIENT_DIR, 'index.html')
+    return send_from_directory(config.client_dir, 'index.html')
 
 @client_bp.route('/login.html')
 def serve_login() -> Response:
     """Serve the login page"""
-    return send_from_directory(CLIENT_DIR, 'login.html')
+    return send_from_directory(config.client_dir, 'login.html')
 
-app = Flask(__name__, static_folder=CLIENT_DIR, static_url_path='')
+app = Flask(__name__, static_folder=config.client_dir, static_url_path='')
 
 # Session configuration
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.permanent_session_lifetime = timedelta(hours=24)
+app.secret_key = config.secret_key
+app.permanent_session_lifetime = timedelta(hours=config.session_lifetime_hours)
 
-# Database configuration - use PostgreSQL in production, SQLite in development
-if os.environ.get('DATABASE_URL'):
-    # Production - Railway PostgreSQL
-    database_url = os.environ.get('DATABASE_URL')
-    # Handle Railway's postgres:// vs postgresql:// URL format
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-else:
-    # Development - SQLite
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todos.db'
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = config.database_url
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -339,6 +361,7 @@ app.register_blueprint(categories_bp)
 app.register_blueprint(todos_bp)
 app.register_blueprint(client_bp)
 
+# Initialize Flask-SQLAlchemy with our models
 db = SQLAlchemy(app, model_class=Base)
 
 # Initialize database
@@ -356,7 +379,5 @@ with app.app_context():
         db.session.commit()
 
 if __name__ == '__main__':
-    # Use environment variables for production deployment
-    port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('FLASK_ENV') != 'production'
-    app.run(debug=debug, host='0.0.0.0', port=port)
+    # Use configuration for deployment
+    app.run(debug=config.debug, host='0.0.0.0', port=config.port)
