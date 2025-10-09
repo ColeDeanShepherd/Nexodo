@@ -627,3 +627,11 @@ input:focus,
     max-height: 300px;
     overflow-y: auto;
 }
+
+.categories-header {
+    padding: 2em 0;
+}
+
+.categories-header h3 {
+    display: inline;
+}
