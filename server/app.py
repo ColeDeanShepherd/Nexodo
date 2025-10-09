@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, redirect, url_for
+from flask import Flask, request, jsonify, session, redirect, url_for, Blueprint
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from datetime import datetime, timedelta
@@ -91,8 +91,14 @@ def verify_password(password):
     """Verify if the provided password matches the app password"""
     return password == APP_PASSWORD
 
+# Create Blueprints
+auth_bp = Blueprint('auth', __name__, url_prefix='/api')
+categories_bp = Blueprint('categories', __name__, url_prefix='/api')
+todos_bp = Blueprint('todos', __name__, url_prefix='/api')
+client_bp = Blueprint('client', __name__)
+
 # Authentication Routes
-@app.route('/api/login', methods=['POST'])
+@auth_bp.route('/login', methods=['POST'])
 def login():
     """Authenticate user with password"""
     data = request.get_json()
@@ -108,13 +114,13 @@ def login():
     else:
         return jsonify({'error': 'Invalid password'}), 401
 
-@app.route('/api/logout', methods=['POST'])
+@auth_bp.route('/logout', methods=['POST'])
 def logout():
     """Clear the user session"""
     session.clear()
     return jsonify({'success': True, 'message': 'Logged out successfully'}), 200
 
-@app.route('/api/auth-status', methods=['GET'])
+@auth_bp.route('/auth-status', methods=['GET'])
 def auth_status():
     """Check if user is authenticated"""
     if not session.get('authenticated') or not session.get('login_time'):
@@ -129,14 +135,14 @@ def auth_status():
     return jsonify({'authenticated': True}), 200
 
 # Category API Routes
-@app.route('/api/categories', methods=['GET'])
+@categories_bp.route('/categories', methods=['GET'])
 @login_required
 def get_categories():
     """Get all categories"""
     categories = Category.query.order_by(Category.created_at.asc()).all()
     return jsonify([category.to_dict() for category in categories])
 
-@app.route('/api/categories', methods=['POST'])
+@categories_bp.route('/categories', methods=['POST'])
 @login_required
 def create_category():
     """Create a new category"""
@@ -162,7 +168,7 @@ def create_category():
     
     return jsonify(category.to_dict()), 201
 
-@app.route('/api/categories/<int:category_id>', methods=['PUT'])
+@categories_bp.route('/categories/<int:category_id>', methods=['PUT'])
 @login_required
 def update_category(category_id):
     """Update an existing category"""
@@ -193,7 +199,7 @@ def update_category(category_id):
     db.session.commit()
     return jsonify(category.to_dict())
 
-@app.route('/api/categories/<int:category_id>', methods=['DELETE'])
+@categories_bp.route('/categories/<int:category_id>', methods=['DELETE'])
 @login_required
 def delete_category(category_id):
     """Delete a category"""
@@ -209,14 +215,14 @@ def delete_category(category_id):
     return '', 204
 
 # Todo API Routes
-@app.route('/api/todos', methods=['GET'])
+@todos_bp.route('/todos', methods=['GET'])
 @login_required
 def get_todos():
     """Get all todos"""
     todos = Todo.query.order_by(Todo.created_at.desc()).all()
     return jsonify([todo.to_dict() for todo in todos])
 
-@app.route('/api/todos', methods=['POST'])
+@todos_bp.route('/todos', methods=['POST'])
 @login_required
 def create_todo():
     """Create a new todo"""
@@ -250,7 +256,7 @@ def create_todo():
     
     return jsonify(todo.to_dict()), 201
 
-@app.route('/api/todos/<int:todo_id>', methods=['PUT'])
+@todos_bp.route('/todos/<int:todo_id>', methods=['PUT'])
 @login_required
 def update_todo(todo_id):
     """Update an existing todo"""
@@ -288,7 +294,7 @@ def update_todo(todo_id):
     
     return jsonify(todo.to_dict())
 
-@app.route('/api/todos/<int:todo_id>', methods=['DELETE'])
+@todos_bp.route('/todos/<int:todo_id>', methods=['DELETE'])
 @login_required
 def delete_todo(todo_id):
     """Delete a todo"""
@@ -298,16 +304,22 @@ def delete_todo(todo_id):
     
     return '', 204
 
-# Serve the web client
-@app.route('/')
+# Client Routes (Static File Serving)
+@client_bp.route('/')
 def serve_client():
     """Serve the main web client"""
     return app.send_static_file('index.html')
 
-@app.route('/login.html')
+@client_bp.route('/login.html')
 def serve_login():
     """Serve the login page"""
     return app.send_static_file('login.html')
+
+# Register Blueprints
+app.register_blueprint(auth_bp)
+app.register_blueprint(categories_bp)
+app.register_blueprint(todos_bp)
+app.register_blueprint(client_bp)
 
 # Initialize database
 with app.app_context():
