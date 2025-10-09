@@ -1,45 +1,35 @@
-from flask import Flask, request, jsonify, session, redirect, url_for, Blueprint
+from flask import Flask, request, jsonify, session, Blueprint, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from flask_cors import CORS
 from datetime import datetime, timedelta
 import os
-import hashlib
 from functools import wraps
 
-app = Flask(__name__, static_folder='../client', static_url_path='')
-
-# Session configuration
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.permanent_session_lifetime = timedelta(hours=24)
+# Client directory path
+CLIENT_DIR = '../client'
 
 # Authentication configuration
 APP_PASSWORD = os.environ.get('APP_PASSWORD', 'nexodo123')  # Default password for development
 
-# Database configuration - use PostgreSQL in production, SQLite in development
-if os.environ.get('DATABASE_URL'):
-    # Production - Railway PostgreSQL
-    database_url = os.environ.get('DATABASE_URL')
-    # Handle Railway's postgres:// vs postgresql:// URL format
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-else:
-    # Development - SQLite
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todos.db'
+# Create declarative base for models
+Base = declarative_base()
 
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+class Todo(Base):
+    __tablename__ = 'todo'
+    
+    id = Column(Integer, primary_key=True)
+    description = Column(String(200), nullable=False)
+    completed = Column(Boolean, default=False, nullable=False)
+    deadline = Column(DateTime, nullable=True)
+    category_id = Column(Integer, ForeignKey('category.id'), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-db = SQLAlchemy(app)
-CORS(app)  # Enable CORS for all routes
-
-class Todo(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    description = db.Column(db.String(200), nullable=False)
-    completed = db.Column(db.Boolean, default=False, nullable=False)
-    deadline = db.Column(db.DateTime, nullable=True)
-    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    # Relationship
+    category = relationship("Category", back_populates="todos")
 
     def to_dict(self):
         return {
@@ -53,14 +43,16 @@ class Todo(db.Model):
             'updated_at': self.updated_at.isoformat()
         }
 
-class Category(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False, unique=True)
-    color = db.Column(db.String(7), nullable=False, default='#3498db')  # Hex color code
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+class Category(Base):
+    __tablename__ = 'category'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), nullable=False, unique=True)
+    color = Column(String(7), nullable=False, default='#3498db')  # Hex color code
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationship with todos
-    todos = db.relationship('Todo', backref='category', lazy=True)
+    todos = relationship('Todo', back_populates='category')
     
     def to_dict(self):
         return {
@@ -70,6 +62,9 @@ class Category(db.Model):
             'created_at': self.created_at.isoformat(),
             'todo_count': len(self.todos)
         }
+
+# Initialize Flask-SQLAlchemy with our models
+db = None
 
 # Authentication functions
 def login_required(f):
@@ -308,18 +303,42 @@ def delete_todo(todo_id):
 @client_bp.route('/')
 def serve_client():
     """Serve the main web client"""
-    return app.send_static_file('index.html')
+    return send_from_directory(CLIENT_DIR, 'index.html')
 
 @client_bp.route('/login.html')
 def serve_login():
     """Serve the login page"""
-    return app.send_static_file('login.html')
+    return send_from_directory(CLIENT_DIR, 'login.html')
+
+app = Flask(__name__, static_folder=CLIENT_DIR, static_url_path='')
+
+# Session configuration
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.permanent_session_lifetime = timedelta(hours=24)
+
+# Database configuration - use PostgreSQL in production, SQLite in development
+if os.environ.get('DATABASE_URL'):
+    # Production - Railway PostgreSQL
+    database_url = os.environ.get('DATABASE_URL')
+    # Handle Railway's postgres:// vs postgresql:// URL format
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    # Development - SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todos.db'
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+CORS(app)  # Enable CORS for all routes
 
 # Register Blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(categories_bp)
 app.register_blueprint(todos_bp)
 app.register_blueprint(client_bp)
+
+db = SQLAlchemy(app, model_class=Base)
 
 # Initialize database
 with app.app_context():
