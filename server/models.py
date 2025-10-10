@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Union, Tuple
 
 # Import from our new modules
-from config import Config
-from utils import success_response, error_response, no_content_response
+from .config import Config
+from .utils import success_response, error_response, no_content_response
 
 # Create declarative base for models
 Base = declarative_base()
