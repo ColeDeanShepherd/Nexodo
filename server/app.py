@@ -52,6 +52,76 @@ Base = declarative_base()
 
 db = None
 
+# Helper functions for consistent responses
+def success_response(data: Any, status: int = 200) -> Tuple[Response, int]:
+    """Standard success response"""
+    return jsonify(data), status
+
+def error_response(message: str, status: int = 400) -> Tuple[Response, int]:
+    """Standard error response"""
+    return jsonify({'error': message}), status
+
+def no_content_response() -> Tuple[str, int]:
+    """Standard 204 No Content response"""
+    return '', 204
+
+# Validation helper functions
+def validate_todo_data(data: Optional[Dict[str, Any]], for_update: bool = False) -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[Response, int]]]:
+    """Validate todo data, return (validated_data, error) tuple"""
+    if not data:
+        return None, error_response('No data provided' if for_update else 'Description is required')
+    
+    if not for_update and 'description' not in data:
+        return None, error_response('Description is required')
+    
+    validated_data = data.copy()
+    
+    # Handle deadline validation
+    if 'deadline' in data and data['deadline']:
+        try:
+            validated_data['deadline'] = datetime.fromisoformat(data['deadline'].replace('Z', '+00:00'))
+        except ValueError:
+            return None, error_response('Invalid deadline format')
+    elif 'deadline' in data and not data['deadline']:
+        validated_data['deadline'] = None
+    
+    # Handle category validation
+    category_id = data.get('category_id')
+    if category_id and not Category.query.get(category_id):
+        return None, error_response('Invalid category')
+    
+    return validated_data, None
+
+def validate_category_data(data: Optional[Dict[str, Any]], exclude_id: Optional[int] = None) -> Tuple[Optional[Tuple[str, str]], Optional[Tuple[Response, int]]]:
+    """Validate category data, return ((name, color), error) tuple"""
+    if not data or 'name' not in data:
+        return None, error_response('Category name is required')
+    
+    name = data['name'].strip()
+    if not name:
+        return None, error_response('Category name cannot be empty')
+    
+    # Validate color format (hex color)
+    color = data.get('color', '#3498db')
+    if not isinstance(color, str) or not color.startswith('#') or len(color) != 7:
+        return None, error_response('Color must be a valid hex color (e.g., #3498db)')
+    
+    try:
+        # Validate hex color by trying to convert it
+        int(color[1:], 16)
+    except ValueError:
+        return None, error_response('Color must be a valid hex color (e.g., #3498db)')
+    
+    # Check uniqueness
+    query = Category.query.filter_by(name=name)
+    if exclude_id:
+        query = query.filter(Category.id != exclude_id)
+    
+    if query.first():
+        return None, error_response('Category already exists')
+    
+    return (name, color), None
+
 class Todo(Base):
     __tablename__ = 'todo'
     
@@ -77,6 +147,27 @@ class Todo(Base):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
+    
+    @classmethod
+    def create_from_data(cls, data: Dict[str, Any]) -> 'Todo':
+        """Create todo from validated data"""
+        return cls(
+            description=data['description'],
+            deadline=data.get('deadline'),
+            category_id=data.get('category_id')
+        )
+    
+    def update_from_data(self, data: Dict[str, Any]) -> None:
+        """Update todo from data"""
+        if 'description' in data:
+            self.description = data['description']
+        if 'completed' in data:
+            self.completed = data['completed']
+        if 'deadline' in data:
+            self.deadline = data['deadline']
+        if 'category_id' in data:
+            self.category_id = data['category_id']
+        self.updated_at = datetime.utcnow()
 
 class Category(Base):
     __tablename__ = 'category'
@@ -97,20 +188,44 @@ class Category(Base):
             'created_at': self.created_at.isoformat(),
             'todo_count': len(self.todos)
         }
+    
+    @classmethod
+    def create_from_data(cls, name: str, color: str = '#3498db') -> 'Category':
+        """Create category from data"""
+        return cls(name=name, color=color)
+    
+    def can_delete(self) -> bool:
+        """Check if category can be safely deleted"""
+        return len(self.todos) == 0
+
+# Session management helpers
+def create_session() -> None:
+    """Create authenticated session"""
+    session.permanent = True
+    session['authenticated'] = True
+    session['login_time'] = datetime.utcnow().isoformat()
+
+def is_session_valid() -> bool:
+    """Check if session is valid and not expired"""
+    if not session.get('authenticated') or not session.get('login_time'):
+        return False
+    
+    login_time = datetime.fromisoformat(session['login_time'])
+    return datetime.utcnow() - login_time <= timedelta(hours=config.session_lifetime_hours)
+
+def clear_expired_session() -> bool:
+    """Clear session if expired, return True if was expired"""
+    if not is_session_valid():
+        session.clear()
+        return True
+    return False
 
 # Authentication functions
 def login_required(f: Callable) -> Callable:
     @wraps(f)
     def decorated_function(*args: Any, **kwargs: Any) -> Union[Response, Tuple[Response, int]]:
-        if not session.get('authenticated') or not session.get('login_time'):
-            return jsonify({'error': 'Authentication required'}), 401
-        
-        # Check if session has expired
-        login_time = datetime.fromisoformat(session['login_time'])
-        if datetime.utcnow() - login_time > timedelta(hours=config.session_lifetime_hours):
-            session.clear()
-            return jsonify({'error': 'Session expired'}), 401
-        
+        if clear_expired_session() or not is_session_valid():
+            return error_response('Authentication required', 401)
         return f(*args, **kwargs)
     return decorated_function
 
@@ -130,36 +245,23 @@ def login() -> Tuple[Response, int]:
     """Authenticate user with password"""
     data = request.get_json()
     
-    if not data or 'password' not in data:
-        return jsonify({'error': 'Password is required'}), 400
+    if not data or not verify_password(data.get('password', '')):
+        return error_response('Invalid password', 401)
     
-    if verify_password(data['password']):
-        session.permanent = True
-        session['authenticated'] = True
-        session['login_time'] = datetime.utcnow().isoformat()
-        return jsonify({'success': True, 'message': 'Login successful'}), 200
-    else:
-        return jsonify({'error': 'Invalid password'}), 401
+    create_session()
+    return success_response({'success': True, 'message': 'Login successful'})
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout() -> Tuple[Response, int]:
     """Clear the user session"""
     session.clear()
-    return jsonify({'success': True, 'message': 'Logged out successfully'}), 200
+    return success_response({'success': True, 'message': 'Logged out successfully'})
 
 @auth_bp.route('/auth-status', methods=['GET'])
 def auth_status() -> Tuple[Response, int]:
     """Check if user is authenticated"""
-    if not session.get('authenticated') or not session.get('login_time'):
-        return jsonify({'authenticated': False}), 200
-    
-    # Check if session has expired
-    login_time = datetime.fromisoformat(session['login_time'])
-    if datetime.utcnow() - login_time > timedelta(hours=config.session_lifetime_hours):
-        session.clear()
-        return jsonify({'authenticated': False}), 200
-    
-    return jsonify({'authenticated': True}), 200
+    clear_expired_session()
+    return success_response({'authenticated': is_session_valid()})
 
 # Category API Routes
 @categories_bp.route('/categories', methods=['GET'])
@@ -167,33 +269,23 @@ def auth_status() -> Tuple[Response, int]:
 def get_categories() -> Response:
     """Get all categories"""
     categories = Category.query.order_by(Category.created_at.asc()).all()
-    return jsonify([category.to_dict() for category in categories])
+    return success_response([category.to_dict() for category in categories])
 
 @categories_bp.route('/categories', methods=['POST'])
 @login_required
 def create_category() -> Tuple[Response, int]:
     """Create a new category"""
-    data = request.get_json()
+    validated_data, error = validate_category_data(request.get_json())
+    if error:
+        return error
     
-    if not data or 'name' not in data:
-        return jsonify({'error': 'Category name is required'}), 400
+    name, color = validated_data
+    category = Category.create_from_data(name=name, color=color)
     
-    name = data['name'].strip()
-    if not name:
-        return jsonify({'error': 'Category name cannot be empty'}), 400
-    
-    # Check if category already exists
-    existing_category = Category.query.filter_by(name=name).first()
-    if existing_category:
-        return jsonify({'error': 'Category already exists'}), 400
-    
-    color = data.get('color', '#3498db')
-    
-    category = Category(name=name, color=color)
     db.session.add(category)
     db.session.commit()
     
-    return jsonify(category.to_dict()), 201
+    return success_response(category.to_dict(), 201)
 
 @categories_bp.route('/categories/<int:category_id>', methods=['PUT'])
 @login_required
@@ -203,28 +295,18 @@ def update_category(category_id: int) -> Union[Response, Tuple[Response, int]]:
     data = request.get_json()
     
     if not data:
-        return jsonify({'error': 'No data provided'}), 400
+        return error_response('No data provided')
     
-    if 'name' in data:
-        name = data['name'].strip()
-        if not name:
-            return jsonify({'error': 'Category name cannot be empty'}), 400
-        
-        # Check if another category with this name exists
-        existing_category = Category.query.filter(
-            Category.name == name, 
-            Category.id != category_id
-        ).first()
-        if existing_category:
-            return jsonify({'error': 'Category name already exists'}), 400
-        
+    if 'name' in data or 'color' in data:
+        validated_data, error = validate_category_data(data, exclude_id=category_id)
+        if error:
+            return error
+        name, color = validated_data
         category.name = name
-    
-    if 'color' in data:
-        category.color = data['color']
+        category.color = color
     
     db.session.commit()
-    return jsonify(category.to_dict())
+    return success_response(category.to_dict())
 
 @categories_bp.route('/categories/<int:category_id>', methods=['DELETE'])
 @login_required
@@ -232,14 +314,13 @@ def delete_category(category_id: int) -> Union[Tuple[str, int], Tuple[Response, 
     """Delete a category"""
     category = Category.query.get_or_404(category_id)
     
-    # Check if category has todos
-    if category.todos:
-        return jsonify({'error': 'Cannot delete category that contains todos'}), 400
+    if not category.can_delete():
+        return error_response('Cannot delete category that contains todos')
     
     db.session.delete(category)
     db.session.commit()
     
-    return '', 204
+    return no_content_response()
 
 # Todo API Routes
 @todos_bp.route('/todos', methods=['GET'])
@@ -247,79 +328,37 @@ def delete_category(category_id: int) -> Union[Tuple[str, int], Tuple[Response, 
 def get_todos() -> Response:
     """Get all todos"""
     todos = Todo.query.order_by(Todo.created_at.desc()).all()
-    return jsonify([todo.to_dict() for todo in todos])
+    return success_response([todo.to_dict() for todo in todos])
 
 @todos_bp.route('/todos', methods=['POST'])
 @login_required
 def create_todo() -> Tuple[Response, int]:
     """Create a new todo"""
-    data = request.get_json()
+    validated_data, error = validate_todo_data(request.get_json())
+    if error:
+        return error
     
-    if not data or 'description' not in data:
-        return jsonify({'error': 'Description is required'}), 400
-    
-    deadline: Optional[datetime] = None
-    if data.get('deadline'):
-        try:
-            deadline = datetime.fromisoformat(data['deadline'].replace('Z', '+00:00'))
-        except ValueError:
-            return jsonify({'error': 'Invalid deadline format'}), 400
-    
-    # Handle category assignment
-    category_id = data.get('category_id')
-    if category_id:
-        category = Category.query.get(category_id)
-        if not category:
-            return jsonify({'error': 'Invalid category'}), 400
-    
-    todo = Todo(
-        description=data['description'],
-        deadline=deadline,
-        category_id=category_id
-    )
+    todo = Todo.create_from_data(validated_data)
     
     db.session.add(todo)
     db.session.commit()
     
-    return jsonify(todo.to_dict()), 201
+    return success_response(todo.to_dict(), 201)
 
 @todos_bp.route('/todos/<int:todo_id>', methods=['PUT'])
 @login_required
 def update_todo(todo_id: int) -> Union[Response, Tuple[Response, int]]:
     """Update an existing todo"""
     todo = Todo.query.get_or_404(todo_id)
-    data = request.get_json()
     
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
+    validated_data, error = validate_todo_data(request.get_json(), for_update=True)
+    if error:
+        return error
     
-    if 'description' in data:
-        todo.description = data['description']
-    
-    if 'completed' in data:
-        todo.completed = data['completed']
-    
-    if 'deadline' in data:
-        if data['deadline']:
-            try:
-                todo.deadline = datetime.fromisoformat(data['deadline'].replace('Z', '+00:00'))
-            except ValueError:
-                return jsonify({'error': 'Invalid deadline format'}), 400
-        else:
-            todo.deadline = None
-    
-    if 'category_id' in data:
-        category_id = data['category_id']
-        if category_id:
-            category = Category.query.get(category_id)
-            if not category:
-                return jsonify({'error': 'Invalid category'}), 400
-        todo.category_id = category_id
-    
-    todo.updated_at = datetime.utcnow()
+    todo.update_from_data(validated_data)
     db.session.commit()
     
-    return jsonify(todo.to_dict())
+    return success_response(todo.to_dict())
 
 @todos_bp.route('/todos/<int:todo_id>', methods=['DELETE'])
 @login_required
@@ -329,7 +368,7 @@ def delete_todo(todo_id: int) -> Tuple[str, int]:
     db.session.delete(todo)
     db.session.commit()
     
-    return '', 204
+    return no_content_response()
 
 # Client Routes (Static File Serving)
 @client_bp.route('/')
@@ -364,19 +403,26 @@ app.register_blueprint(client_bp)
 # Initialize Flask-SQLAlchemy with our models
 db = SQLAlchemy(app, model_class=Base)
 
-# Initialize database
-with app.app_context():
+# Database initialization
+def initialize_database() -> None:
+    """Initialize database with default data"""
     db.create_all()
     
     # Create default categories if they don't exist
     if Category.query.count() == 0:
         default_categories = [
-            Category(name='Personal', color='#3498db'),
-            Category(name='Work', color='#e74c3c')
+            Category.create_from_data('Personal', '#3498db'),
+            Category.create_from_data('Work', '#e74c3c'),
+            Category.create_from_data('Shopping', '#f39c12'),
+            Category.create_from_data('Health', '#27ae60')
         ]
         for category in default_categories:
             db.session.add(category)
         db.session.commit()
+
+# Initialize database
+with app.app_context():
+    initialize_database()
 
 if __name__ == '__main__':
     # Use configuration for deployment
