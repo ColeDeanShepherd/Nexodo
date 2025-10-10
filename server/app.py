@@ -5,10 +5,11 @@ from datetime import datetime, timedelta
 from typing import Union, Tuple, Callable, Any
 from functools import wraps
 
-# Import all models and utilities from models.py
+# Import all models and utilities from separate modules
+from config import Config
+from utils import success_response, error_response, no_content_response
 from models import (
-    Config, Base, Todo, Category, Deck, Flashcard, StudySession,
-    success_response, error_response, no_content_response,
+    Base, Todo, Category, Deck, Flashcard, StudySession,
     validate_todo_data, validate_category_data, validate_deck_data,
     validate_flashcard_data, validate_study_data, initialize_database
 )

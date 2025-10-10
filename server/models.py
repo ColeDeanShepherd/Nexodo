@@ -1,62 +1,17 @@
-from flask import jsonify, Response
+from flask import Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Union, Tuple
-import os
-from dataclasses import dataclass
 
-@dataclass
-class Config:
-    """Application configuration from environment variables"""
-    secret_key: str
-    app_password: str
-    database_url: str
-    port: int # Only used when debugging
-    debug: bool
-    client_dir: str
-    session_lifetime_hours: int
-    
-    @classmethod
-    def from_env(cls) -> 'Config':
-        """Create config from environment variables"""
-        # Database URL handling
-        database_url = os.environ.get('DATABASE_URL')
-        if database_url:
-            # Handle Railway's postgres:// vs postgresql:// URL format
-            if database_url.startswith('postgres://'):
-                database_url = database_url.replace('postgres://', 'postgresql://', 1)
-        else:
-            # Development - SQLite
-            database_url = 'sqlite:///todos.db'
-        
-        return cls(
-            secret_key=os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production'),
-            app_password=os.environ.get('APP_PASSWORD', 'nexodo123'),
-            database_url=database_url,
-            port=int(os.environ.get('PORT', 5000)),
-            debug=os.environ.get('FLASK_ENV') != 'production',
-            client_dir='../client',
-            session_lifetime_hours=24
-        )
+# Import from our new modules
+from config import Config
+from utils import success_response, error_response, no_content_response
 
 # Create declarative base for models
 Base = declarative_base()
-
-# Helper functions for consistent responses
-def success_response(data: Any, status: int = 200) -> Tuple[Response, int]:
-    """Standard success response"""
-    return jsonify(data), status
-
-def error_response(message: str, status: int = 400) -> Tuple[Response, int]:
-    """Standard error response"""
-    return jsonify({'error': message}), status
-
-def no_content_response() -> Tuple[str, int]:
-    """Standard 204 No Content response"""
-    return '', 204
 
 # Validation helper functions
 def validate_todo_data(data: Optional[Dict[str, Any]], for_update: bool = False) -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[Response, int]]]:
