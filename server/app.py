@@ -381,6 +381,11 @@ def serve_client() -> Response:
     """Serve the main web client"""
     return send_from_directory(config.client_dir, 'index.html')
 
+@client_bp.route('/flashcards')
+def serve_flashcards() -> Response:
+    """Serve the flashcards page"""
+    return send_from_directory(config.client_dir, 'flashcards.html')
+
 @client_bp.route('/login.html')
 def serve_login() -> Response:
     """Serve the login page"""

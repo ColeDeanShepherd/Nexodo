@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexodo - Flashcards</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>📝 Nexodo</h1>
+                <nav class="main-nav">
+                    <button id="nav-todos" class="nav-btn" onclick="window.location.href='/'">📝 Todos</button>
+                    <button id="nav-flashcards" class="nav-btn active">🃏 Flashcards</button>
+                </nav>
+            </div>
+            <div class="header-actions">
+                <button id="logout-btn" class="btn btn-secondary">
+                    🚪 Logout
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Flashcard System -->
+            <div id="flashcard-system" class="system-view active">
+                <!-- Study Dashboard -->
+                <section class="study-dashboard">
+                    <div class="dashboard-header">
+                        <h2>🃏 Flashcard Study Center</h2>
+                        <div class="dashboard-stats">
+                            <div class="stat-card">
+                                <span class="stat-number" id="total-decks-count">0</span>
+                                <span class="stat-label">Decks</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-number" id="total-cards-count">0</span>
+                                <span class="stat-label">Cards</span>
+                            </div>
+                            <div class="stat-card due">
+                                <span class="stat-number" id="due-cards-count">0</span>
+                                <span class="stat-label">Due Today</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Deck Management -->
+                <section class="deck-management">
+                    <div class="deck-controls">
+                        <button id="create-deck-btn" class="btn btn-primary btn-large">
+                            ➕ Create New Deck
+                        </button>
+                        <button id="study-due-btn" class="btn btn-accent btn-large" disabled>
+                            📚 Study Due Cards
+                        </button>
+                    </div>
+                    
+                    <div id="deck-loading" class="loading hidden">Loading decks...</div>
+                    <div id="deck-list" class="deck-list">
+                        <!-- Decks will be dynamically loaded here -->
+                    </div>
+                    <div id="deck-empty-state" class="empty-state hidden">
+                        <p>No decks yet. Create one above to get started!</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Deck Creation Modal -->
+        <div id="create-deck-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Create New Deck</h3>
+                    <button id="close-create-deck-modal" class="close-btn">&times;</button>
+                </div>
+                <form id="create-deck-form" class="deck-form">
+                    <div class="form-group">
+                        <label for="deck-name">Deck Name:</label>
+                        <input type="text" id="deck-name" name="name" placeholder="Enter deck name..." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="deck-description">Description (optional):</label>
+                        <textarea id="deck-description" name="description" placeholder="Describe what this deck is for..."></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" id="cancel-create-deck" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Create Deck</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Deck Management Modal -->
+        <div id="deck-modal" class="modal hidden">
+            <div class="modal-content modal-large">
+                <div class="modal-header">
+                    <h3 id="deck-modal-title">Deck Name</h3>
+                    <div class="modal-header-actions">
+                        <button id="edit-deck-btn" class="btn btn-secondary btn-small">✏️ Edit</button>
+                        <button id="add-card-btn" class="btn btn-primary btn-small">➕ Add Card</button>
+                        <button id="close-deck-modal" class="close-btn">&times;</button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="deck-stats">
+                        <span id="deck-card-count">0 cards</span>
+                        <span id="deck-due-count">0 due</span>
+                        <button id="study-deck-btn" class="btn btn-accent" disabled>📚 Study</button>
+                    </div>
+                    <div id="flashcard-list" class="flashcard-list">
+                        <!-- Flashcards will be dynamically loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flashcard Creation/Edit Modal -->
+        <div id="flashcard-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="flashcard-modal-title">Add New Card</h3>
+                    <button id="close-flashcard-modal" class="close-btn">&times;</button>
+                </div>
+                <form id="flashcard-form" class="flashcard-form">
+                    <input type="hidden" id="flashcard-id" name="id">
+                    <input type="hidden" id="flashcard-deck-id" name="deck_id">
+                    <div class="form-group">
+                        <label for="card-front">Front:</label>
+                        <textarea id="card-front" name="front" placeholder="Enter the question or prompt..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="card-back">Back:</label>
+                        <textarea id="card-back" name="back" placeholder="Enter the answer or explanation..." required></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" id="cancel-flashcard" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Card</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Study Session Modal -->
+        <div id="study-modal" class="modal hidden">
+            <div class="modal-content modal-large">
+                <div class="modal-header">
+                    <h3 id="study-modal-title">Study Session</h3>
+                    <div class="study-progress">
+                        <span id="study-progress-text">Card 1 of 10</span>
+                        <button id="close-study-modal" class="close-btn">&times;</button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="flashcard-container">
+                        <div id="study-card" class="study-card">
+                            <div class="card-side front">
+                                <div class="card-content" id="study-card-front">
+                                    <!-- Front content -->
+                                </div>
+                            </div>
+                            <div class="card-side back hidden">
+                                <div class="card-content" id="study-card-back">
+                                    <!-- Back content -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="study-controls">
+                            <button id="show-answer-btn" class="btn btn-primary btn-large">Show Answer</button>
+                            <div id="rating-controls" class="rating-controls hidden">
+                                <p>How well did you remember this card?</p>
+                                <div class="rating-buttons">
+                                    <button class="btn btn-danger rating-btn" data-quality="0">Again (0)</button>
+                                    <button class="btn btn-warning rating-btn" data-quality="1">Hard (1)</button>
+                                    <button class="btn btn-info rating-btn" data-quality="3">Good (3)</button>
+                                    <button class="btn btn-success rating-btn" data-quality="5">Easy (5)</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="common.js" defer></script>
+    <script src="flashcards.js" defer></script>
+</body>
+</html>
