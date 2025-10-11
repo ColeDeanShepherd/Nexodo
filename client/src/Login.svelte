@@ -1,10 +1,10 @@
-<script>
-	let password = '';
-	let errorMessage = '';
-	let isLoading = false;
-	let showError = false;
+<script lang="ts">
+	let password: string = '';
+	let errorMessage: string = '';
+	let isLoading: boolean = false;
+	let showError: boolean = false;
 
-	async function handleSubmit() {
+	async function handleSubmit(): Promise<void> {
 		if (!password) {
 			showErrorMessage('Please enter a password');
 			return;
@@ -38,7 +38,7 @@
 		}
 	}
 
-	function showErrorMessage(message) {
+	function showErrorMessage(message: string): void {
 		errorMessage = message;
 		showError = true;
 		setTimeout(() => {
@@ -46,12 +46,12 @@
 		}, 5000);
 	}
 
-	function hideError() {
+	function hideError(): void {
 		showError = false;
 	}
 
 	// Auto-hide error when user starts typing
-	function handlePasswordInput() {
+	function handlePasswordInput(): void {
 		hideError();
 	}
 </script>

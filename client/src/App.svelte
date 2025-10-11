@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import Login from './Login.svelte';
 	
 	// For now, we'll just show the login component
