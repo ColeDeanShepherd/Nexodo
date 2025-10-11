@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "build": "cd client && npm install && npm run build",
-    "start": "gunicorn -w 4 -b 0.0.0.0:$PORT server.app:app"
+    "start": "gunicorn -w 4 -b 0.0.0.0:$PORT server.app:app",
+    "dev": "npm run build && python -m server.app",
+    "build-and-serve": "npm run build && python -m server.app"
   },
   "engines": {
     "node": ">=22.20.0"
