@@ -6,6 +6,6 @@
     "start": "gunicorn -w 4 -b 0.0.0.0:$PORT server.app:app"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.20.0"
   }
 }
