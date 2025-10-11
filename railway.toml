@@ -9,4 +9,4 @@ healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 
 [env]
-NODE_VERSION = "22.20.0"
+NODE_VERSION = "22.12.0"
