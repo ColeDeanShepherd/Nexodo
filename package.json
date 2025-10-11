@@ -1,0 +1,8 @@
+{
+  "name": "nexodo",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd client && npm install && npm run build",
+    "start": "gunicorn -w 4 -b 0.0.0.0:$PORT server.app:app"
+  }
+}

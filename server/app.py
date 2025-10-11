@@ -63,6 +63,12 @@ flashcards_bp = Blueprint('flashcards', __name__, url_prefix='/api')
 study_bp = Blueprint('study', __name__, url_prefix='/api')
 client_bp = Blueprint('client', __name__)
 
+# Health check endpoint
+@auth_bp.route('/health')
+def health_check() -> Tuple[Response, int]:
+    """Health check endpoint for deployment"""
+    return success_response({'status': 'healthy'})
+
 # Authentication Routes
 @auth_bp.route('/login', methods=['POST'])
 def login() -> Tuple[Response, int]:
@@ -378,7 +384,12 @@ def serve_client() -> Response:
 @client_bp.route('/login.html')
 def serve_login() -> Response:
     """Serve the login page"""
-    return send_from_directory(config.client_dir, 'login.html')
+    return send_from_directory(config.client_dir + '/dist', 'login.html')
+
+@client_bp.route('/assets/<path:filename>')
+def serve_assets(filename: str) -> Response:
+    """Serve assets for the Svelte login page"""
+    return send_from_directory(config.client_dir + '/dist/assets', filename)
 
 app = Flask(__name__, static_folder=config.client_dir, static_url_path='')
 

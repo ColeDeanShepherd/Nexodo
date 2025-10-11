@@ -1,102 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Nexodo</title>
-    <link rel="stylesheet" href="styles.css">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Nexodo - Svelte</title>
 </head>
-<body class="login-body">
-    <div class="login-container">
-        <div class="login-card">
-            <header class="login-header">
-                <h1>🔐 Nexodo</h1>
-                <p>Enter your password to access your todos</p>
-            </header>
-
-            <form id="login-form" class="login-form">
-                <div id="login-error" class="error-message hidden"></div>
-                
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        placeholder="Enter your password..." 
-                        required 
-                        autofocus
-                    >
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-large" id="login-btn">
-                    🚀 Login
-                </button>
-            </form>
-
-            <div class="login-footer">
-                <p>Your todos are protected and private</p>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Login functionality
-        const loginForm = document.getElementById('login-form');
-        const loginError = document.getElementById('login-error');
-        const loginBtn = document.getElementById('login-btn');
-        const passwordInput = document.getElementById('password');
-
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const password = passwordInput.value;
-            if (!password) {
-                showError('Please enter a password');
-                return;
-            }
-
-            loginBtn.disabled = true;
-            loginBtn.textContent = '🔄 Logging in...';
-
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ password }),
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    // Login successful, redirect to main app
-                    window.location.href = '/';
-                } else {
-                    showError(data.error || 'Login failed');
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                showError('Connection error. Please try again.');
-            } finally {
-                loginBtn.disabled = false;
-                loginBtn.textContent = '🚀 Login';
-            }
-        });
-
-        function showError(message) {
-            loginError.textContent = message;
-            loginError.classList.remove('hidden');
-            setTimeout(() => {
-                loginError.classList.add('hidden');
-            }, 5000);
-        }
-
-        // Auto-hide error when user starts typing
-        passwordInput.addEventListener('input', () => {
-            loginError.classList.add('hidden');
-        });
-    </script>
+<body>
+	<div id="app"></div>
+	<script type="module" src="/src/main.js"></script>
 </body>
 </html>
