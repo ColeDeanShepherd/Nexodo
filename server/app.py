@@ -156,8 +156,11 @@ def delete_category(category_id: int) -> Union[Tuple[str, int], Tuple[Response, 
 @todos_bp.route('/todos', methods=['GET'])
 @login_required
 def get_todos() -> Response:
-    """Get all todos"""
-    todos = Todo.query.order_by(Todo.created_at.desc()).all()
+    """Get all todos sorted by urgency"""
+    category_filter = request.args.get('category_id', type=int)
+    completion_filter = request.args.get('filter')  # 'all', 'active', 'completed'
+    
+    todos = Todo.get_sorted_todos(category_filter, completion_filter)
     return success_response([todo.to_dict() for todo in todos])
 
 @todos_bp.route('/todos', methods=['POST'])

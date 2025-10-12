@@ -122,7 +122,7 @@ function setupEventListeners() {
     if (categoryFilterSelect) {
         categoryFilterSelect.addEventListener('change', (e) => {
             currentCategoryFilter = e.target.value;
-            renderTodos();
+            loadTodos(); // Reload with new category filter
         });
     }
     
@@ -192,7 +192,17 @@ function setupEventListeners() {
 async function loadTodos() {
     showLoading(true);
     try {
-        todos = await apiCall('/todos');
+        // Build query parameters for server-side sorting
+        const params = new URLSearchParams();
+        if (currentCategoryFilter) {
+            params.append('category_id', currentCategoryFilter);
+        }
+        if (currentFilter !== 'all') {
+            params.append('filter', currentFilter);
+        }
+        
+        const url = `/api/todos${params.toString() ? '?' + params.toString() : ''}`;
+        todos = await apiCall(url);
         renderTodos();
         updateStats();
     } catch (error) {
@@ -365,17 +375,23 @@ function createTodoElement(todo) {
     const now = new Date();
     let deadlineClass = '';
     let deadlineText = '';
+    let urgencyClass = '';
     
     if (deadline) {
-        const isOverdue = deadline < now && !todo.completed;
-        const isToday = deadline.toDateString() === now.toDateString();
+        const hoursUntilDue = (deadline - now) / (1000 * 60 * 60);
         
-        if (isOverdue) {
+        if (hoursUntilDue <= 0 && !todo.completed) {
             deadlineClass = 'deadline-overdue';
+            urgencyClass = 'urgent-overdue';
             deadlineText = `⚠️ Overdue: ${formatDate(deadline)}`;
-        } else if (isToday) {
+        } else if (hoursUntilDue <= 1 && !todo.completed) {
+            deadlineClass = 'deadline-critical';
+            urgencyClass = 'urgent-critical';
+            deadlineText = `🚨 Due in ${Math.ceil(hoursUntilDue * 60)} minutes`;
+        } else if (hoursUntilDue <= 24 && !todo.completed) {
             deadlineClass = 'deadline-today';
-            deadlineText = `📅 Due today: ${formatTime(deadline)}`;
+            urgencyClass = 'urgent-today';
+            deadlineText = `📅 Due in ${Math.ceil(hoursUntilDue)} hours`;
         } else {
             deadlineText = `📅 Due: ${formatDate(deadline)}`;
         }
@@ -394,7 +410,7 @@ function createTodoElement(todo) {
     const priorityText = `<span class="todo-priority priority-${todo.priority || 'low'}">${priorityIcon[todo.priority || 'low']} ${(todo.priority || 'low').charAt(0).toUpperCase() + (todo.priority || 'low').slice(1)}</span>`;
     
     return `
-        <li class="todo-item ${todo.completed ? 'completed' : ''} priority-${todo.priority || 'low'}">
+        <li class="todo-item ${todo.completed ? 'completed' : ''} priority-${todo.priority || 'low'} ${urgencyClass}">
             <div class="todo-header">
                 <input 
                     type="checkbox" 
@@ -464,8 +480,8 @@ function setFilter(filter) {
             showAllBtn.classList.add('active');
     }
     
-    renderTodos();
-    updateStats();
+    // Reload todos with new filter
+    loadTodos();
 }
 
 function updateStats() {

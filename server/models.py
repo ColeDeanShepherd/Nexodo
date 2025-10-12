@@ -205,6 +205,56 @@ class Todo(Base):
         if 'priority' in data:
             self.priority = data['priority']
         self.updated_at = datetime.utcnow()
+    
+    def get_urgency_score(self) -> float:
+        """Calculate urgency score for sorting todos"""
+        now = datetime.utcnow()
+        score = 0.0
+        
+        # Base priority scores
+        priority_scores = {'high': 100, 'medium': 50, 'low': 10}
+        score += priority_scores.get(self.priority, 10)
+        
+        # Deadline urgency (higher score = more urgent)
+        if self.deadline:
+            time_diff = (self.deadline - now).total_seconds()
+            hours_until_due = time_diff / 3600
+            
+            if hours_until_due <= 0:  # Overdue
+                score += 1000 + abs(hours_until_due)  # More overdue = higher score
+            elif hours_until_due <= 24:  # Due within 24 hours
+                score += 500 - hours_until_due * 10  # Closer deadline = higher score
+            elif hours_until_due <= 168:  # Due within a week
+                score += 200 - hours_until_due
+            else:  # Due later
+                score += max(0, 100 - hours_until_due / 24)
+        else:
+            # No deadline gets a small boost to avoid being buried
+            score += 5
+        
+        return score
+
+    @classmethod
+    def get_sorted_todos(cls, category_filter: Optional[int] = None, 
+                        completion_filter: Optional[str] = None) -> List['Todo']:
+        """Get todos sorted by urgency score"""
+        query = cls.query
+        
+        # Apply filters
+        if category_filter:
+            query = query.filter_by(category_id=category_filter)
+        
+        if completion_filter == 'active':
+            query = query.filter_by(completed=False)
+        elif completion_filter == 'completed':
+            query = query.filter_by(completed=True)
+        
+        todos = query.all()
+        
+        # Sort by urgency score (descending) and then by creation date (newest first)
+        todos.sort(key=lambda todo: (-todo.get_urgency_score(), -todo.id))
+        
+        return todos
 
 class Category(Base):
     __tablename__ = 'category'
