@@ -244,7 +244,8 @@ async function handleAddTodo(e) {
     
     const formData = new FormData(e.target);
     const description = formData.get('description').trim();
-    const deadline = formData.get('deadline');
+    const deadlineDate = formData.get('deadline_date');
+    const deadlineTime = formData.get('deadline_time');
     const categoryId = formData.get('category_id');
     
     if (!description) {
@@ -252,10 +253,20 @@ async function handleAddTodo(e) {
         return;
     }
     
+    // Combine date and time into datetime string
+    let deadline = null;
+    if (deadlineDate) {
+        if (deadlineTime) {
+            deadline = `${deadlineDate}T${deadlineTime}`;
+        } else {
+            deadline = `${deadlineDate}T23:59`;
+        }
+    }
+    
     try {
         await createTodo({
             description,
-            deadline: deadline || null,
+            deadline: deadline,
             category_id: categoryId || null
         });
         
@@ -273,7 +284,8 @@ async function handleEditTodo(e) {
     const formData = new FormData(e.target);
     const id = parseInt(formData.get('id'));
     const description = formData.get('description').trim();
-    const deadline = formData.get('deadline');
+    const deadlineDate = formData.get('deadline_date');
+    const deadlineTime = formData.get('deadline_time');
     const categoryId = formData.get('category_id');
     const completed = formData.get('completed') === 'on';
     
@@ -282,10 +294,20 @@ async function handleEditTodo(e) {
         return;
     }
     
+    // Combine date and time into datetime string
+    let deadline = null;
+    if (deadlineDate) {
+        if (deadlineTime) {
+            deadline = `${deadlineDate}T${deadlineTime}`;
+        } else {
+            deadline = `${deadlineDate}T23:59`;
+        }
+    }
+    
     try {
         await updateTodo(id, {
             description,
-            deadline: deadline || null,
+            deadline: deadline,
             category_id: categoryId || null,
             completed
         });
@@ -462,12 +484,17 @@ function openEditModal(id) {
         editCategorySelect.value = todo.category_id || '';
     }
     
+    // Split datetime into separate date and time fields
     if (todo.deadline) {
         const deadline = new Date(todo.deadline);
-        document.getElementById('edit-todo-deadline').value = 
-            deadline.toISOString().slice(0, 16);
+        const dateString = deadline.toISOString().slice(0, 10); // YYYY-MM-DD
+        const timeString = deadline.toISOString().slice(11, 16); // HH:MM
+        
+        document.getElementById('edit-todo-deadline-date').value = dateString;
+        document.getElementById('edit-todo-deadline-time').value = timeString;
     } else {
-        document.getElementById('edit-todo-deadline').value = '';
+        document.getElementById('edit-todo-deadline-date').value = '';
+        document.getElementById('edit-todo-deadline-time').value = '';
     }
     
     editModal.classList.remove('hidden');

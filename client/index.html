@@ -101,8 +101,17 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="edit-todo-deadline">Deadline (optional):</label>
-                    <input type="datetime-local" id="edit-todo-deadline" name="deadline">
+                    <label>Deadline (optional):</label>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-todo-deadline-date">Date:</label>
+                            <input type="date" id="edit-todo-deadline-date" name="deadline_date">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-todo-deadline-time">Time:</label>
+                            <input type="time" id="edit-todo-deadline-time" name="deadline_time">
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>
@@ -138,8 +147,17 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="todo-deadline">Deadline (optional):</label>
-                        <input type="datetime-local" id="todo-deadline" name="deadline">
+                        <label>Deadline (optional):</label>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="todo-deadline-date">Date:</label>
+                                <input type="date" id="todo-deadline-date" name="deadline_date">
+                            </div>
+                            <div class="form-group">
+                                <label for="todo-deadline-time">Time:</label>
+                                <input type="time" id="todo-deadline-time" name="deadline_time">
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-actions">
                         <button type="button" id="cancel-add" class="btn btn-secondary">Cancel</button>
