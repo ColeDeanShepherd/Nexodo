@@ -201,7 +201,7 @@ async function loadTodos() {
             params.append('filter', currentFilter);
         }
         
-        const url = `/api/todos${params.toString() ? '?' + params.toString() : ''}`;
+        const url = `/todos${params.toString() ? '?' + params.toString() : ''}`;
         todos = await apiCall(url);
         renderTodos();
         updateStats();
