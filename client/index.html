@@ -101,6 +101,14 @@
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="edit-todo-priority">Priority:</label>
+                    <select id="edit-todo-priority" name="priority">
+                        <option value="low">🔵 Low</option>
+                        <option value="medium">🟡 Medium</option>
+                        <option value="high">🔴 High</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label>Deadline (optional):</label>
                     <div class="form-row">
                         <div class="form-group">
@@ -144,6 +152,14 @@
                         <select id="todo-category" name="category_id">
                             <option value="">No category</option>
                             <!-- Categories will be dynamically loaded here -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="todo-priority">Priority:</label>
+                        <select id="todo-priority" name="priority">
+                            <option value="low">🔵 Low</option>
+                            <option value="medium">🟡 Medium</option>
+                            <option value="high">🔴 High</option>
                         </select>
                     </div>
                     <div class="form-group">

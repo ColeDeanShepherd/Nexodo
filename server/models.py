@@ -38,6 +38,12 @@ def validate_todo_data(data: Optional[Dict[str, Any]], for_update: bool = False)
     if category_id and not Category.query.get(category_id):
         return None, error_response('Invalid category')
     
+    # Handle priority validation
+    priority = data.get('priority', 'low')
+    if priority not in ['high', 'medium', 'low']:
+        return None, error_response('Priority must be high, medium, or low')
+    validated_data['priority'] = priority
+    
     return validated_data, None
 
 def validate_category_data(data: Optional[Dict[str, Any]], exclude_id: Optional[int] = None) -> Tuple[Optional[Tuple[str, str]], Optional[Tuple[Response, int]]]:
@@ -156,6 +162,7 @@ class Todo(Base):
     completed = Column(Boolean, default=False, nullable=False)
     deadline = Column(DateTime, nullable=True)
     category_id = Column(Integer, ForeignKey('category.id'), nullable=True)
+    priority = Column(String(10), default='low', nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -170,6 +177,7 @@ class Todo(Base):
             'deadline': self.deadline.isoformat() if self.deadline else None,
             'category_id': self.category_id,
             'category': self.category.to_dict() if self.category else None,
+            'priority': self.priority,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
@@ -180,7 +188,8 @@ class Todo(Base):
         return cls(
             description=data['description'],
             deadline=data.get('deadline'),
-            category_id=data.get('category_id')
+            category_id=data.get('category_id'),
+            priority=data.get('priority', 'low')
         )
     
     def update_from_data(self, data: Dict[str, Any]) -> None:
@@ -193,6 +202,8 @@ class Todo(Base):
             self.deadline = data['deadline']
         if 'category_id' in data:
             self.category_id = data['category_id']
+        if 'priority' in data:
+            self.priority = data['priority']
         self.updated_at = datetime.utcnow()
 
 class Category(Base):

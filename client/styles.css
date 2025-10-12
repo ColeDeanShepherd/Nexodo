@@ -307,6 +307,48 @@ header {
     font-weight: 600;
 }
 
+/* Todo priority styles */
+.todo-priority {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+.todo-priority.priority-high {
+    background-color: #ffebee;
+    color: #d32f2f;
+    border: 1px solid #ffcdd2;
+}
+
+.todo-priority.priority-medium {
+    background-color: #fff8e1;
+    color: #f57c00;
+    border: 1px solid #ffecb3;
+}
+
+.todo-priority.priority-low {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    border: 1px solid #bbdefb;
+}
+
+/* Priority-based todo item styling */
+.todo-item.priority-high {
+    border-left-color: #f44336;
+}
+
+.todo-item.priority-medium {
+    border-left-color: #ff9800;
+}
+
+.todo-item.priority-low {
+    border-left-color: #2196f3;
+}
+
 /* Modal styles */
 .modal {
     position: fixed;

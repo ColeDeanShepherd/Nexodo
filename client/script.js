@@ -247,6 +247,7 @@ async function handleAddTodo(e) {
     const deadlineDate = formData.get('deadline_date');
     const deadlineTime = formData.get('deadline_time');
     const categoryId = formData.get('category_id');
+    const priority = formData.get('priority');
     
     if (!description) {
         showError('Please enter a todo description');
@@ -267,7 +268,8 @@ async function handleAddTodo(e) {
         await createTodo({
             description,
             deadline: deadline,
-            category_id: categoryId || null
+            category_id: categoryId || null,
+            priority: priority || 'low'
         });
         
         e.target.reset();
@@ -287,6 +289,7 @@ async function handleEditTodo(e) {
     const deadlineDate = formData.get('deadline_date');
     const deadlineTime = formData.get('deadline_time');
     const categoryId = formData.get('category_id');
+    const priority = formData.get('priority');
     const completed = formData.get('completed') === 'on';
     
     if (!description) {
@@ -309,6 +312,7 @@ async function handleEditTodo(e) {
             description,
             deadline: deadline,
             category_id: categoryId || null,
+            priority: priority || 'low',
             completed
         });
         
@@ -381,8 +385,16 @@ function createTodoElement(todo) {
     const category = todo.category_id ? getCategoryById(todo.category_id) : null;
     const categoryText = category ? `<span class="todo-category" style="background-color: ${category.color}">📁 ${category.name}</span>` : '';
     
+    // Get priority information
+    const priorityIcon = {
+        'high': '🔴',
+        'medium': '🟡',
+        'low': '🔵'
+    };
+    const priorityText = `<span class="todo-priority priority-${todo.priority || 'low'}">${priorityIcon[todo.priority || 'low']} ${(todo.priority || 'low').charAt(0).toUpperCase() + (todo.priority || 'low').slice(1)}</span>`;
+    
     return `
-        <li class="todo-item ${todo.completed ? 'completed' : ''}">
+        <li class="todo-item ${todo.completed ? 'completed' : ''} priority-${todo.priority || 'low'}">
             <div class="todo-header">
                 <input 
                     type="checkbox" 
@@ -401,6 +413,7 @@ function createTodoElement(todo) {
                 </div>
             </div>
             <div class="todo-meta">
+                ${priorityText}
                 ${categoryText}
                 ${deadlineText ? `<div class="todo-deadline ${deadlineClass}">${deadlineText}</div>` : ''}
             </div>
@@ -482,6 +495,12 @@ function openEditModal(id) {
     const editCategorySelect = document.getElementById('edit-todo-category');
     if (editCategorySelect) {
         editCategorySelect.value = todo.category_id || '';
+    }
+    
+    // Set priority
+    const editPrioritySelect = document.getElementById('edit-todo-priority');
+    if (editPrioritySelect) {
+        editPrioritySelect.value = todo.priority || 'low';
     }
     
     // Split datetime into separate date and time fields
