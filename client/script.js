@@ -169,6 +169,12 @@ function setupEventListeners() {
     if (navTodosBtn) {
         navTodosBtn.addEventListener('click', () => switchToView('todos'));
     }
+    
+    const navTemplatesBtn = document.getElementById('nav-templates');
+    if (navTemplatesBtn) {
+        navTemplatesBtn.addEventListener('click', () => switchToView('templates'));
+    }
+    
     if (navFlashcardsBtn) {
         navFlashcardsBtn.addEventListener('click', () => switchToView('flashcards'));
     }
@@ -186,6 +192,41 @@ function setupEventListeners() {
             if (window.closeStudyModal) window.closeStudyModal();
         }
     });
+}
+
+// Navigation Functions
+function switchToView(view) {
+    // Hide all system views
+    const todoSystem = document.getElementById('todo-system');
+    const templatesSystem = document.getElementById('templates-system');
+    
+    if (todoSystem) todoSystem.classList.remove('active');
+    if (templatesSystem) templatesSystem.classList.remove('active');
+    
+    // Remove active class from all nav buttons
+    const navButtons = document.querySelectorAll('.nav-btn');
+    navButtons.forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected view and activate nav button
+    switch (view) {
+        case 'todos':
+            if (todoSystem) todoSystem.classList.add('active');
+            if (navTodosBtn) navTodosBtn.classList.add('active');
+            break;
+        case 'templates':
+            if (templatesSystem) templatesSystem.classList.add('active');
+            const navTemplatesBtn = document.getElementById('nav-templates');
+            if (navTemplatesBtn) navTemplatesBtn.classList.add('active');
+            // Load templates when switching to templates view
+            if (window.loadTemplates) {
+                window.loadTemplates();
+            }
+            break;
+        case 'flashcards':
+            // Handle flashcards navigation (redirect)
+            window.location.href = '/flashcards';
+            break;
+    }
 }
 
 // API Functions
@@ -409,6 +450,10 @@ function createTodoElement(todo) {
     };
     const priorityText = `<span class="todo-priority priority-${todo.priority || 'low'}">${priorityIcon[todo.priority || 'low']} ${(todo.priority || 'low').charAt(0).toUpperCase() + (todo.priority || 'low').slice(1)}</span>`;
     
+    // Check if this is a recurring todo instance
+    const recurringIndicator = todo.is_recurring_instance ? 
+        `<span class="todo-recurring" title="This todo was generated from a recurring template">🔄 Recurring</span>` : '';
+    
     return `
         <li class="todo-item ${todo.completed ? 'completed' : ''} priority-${todo.priority || 'low'} ${urgencyClass}">
             <div class="todo-header">
@@ -431,6 +476,7 @@ function createTodoElement(todo) {
             <div class="todo-meta">
                 ${priorityText}
                 ${categoryText}
+                ${recurringIndicator}
                 ${deadlineText ? `<div class="todo-deadline ${deadlineClass}">${deadlineText}</div>` : ''}
             </div>
         </li>

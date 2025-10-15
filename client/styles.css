@@ -293,6 +293,19 @@ header {
     gap: 4px;
 }
 
+.todo-recurring {
+    background: rgba(39, 174, 96, 0.1);
+    color: #27ae60;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: help;
+}
+
 .todo-deadline {
     margin-top: 5px;
 }
@@ -1032,5 +1045,382 @@ input:focus,
     .card-side {
         padding: 20px;
         min-height: 250px;
+    }
+}
+
+/* =================================
+   RECURRING TEMPLATES STYLES
+   ================================= */
+
+/* Templates System View */
+.templates-system {
+    display: none;
+}
+
+.templates-system.active {
+    display: block;
+}
+
+/* Add Template Section */
+.add-template-section {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.add-template-section .btn-large {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* Templates List */
+.templates-list-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.templates-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.templates-header h3 {
+    font-size: 1.4rem;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.templates-stats {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+.templates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Template Item */
+.template-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+    transition: all 0.3s ease;
+}
+
+.template-item:hover {
+    background: #e9ecef;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.template-item.inactive {
+    opacity: 0.6;
+    border-left-color: #95a5a6;
+}
+
+.template-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.template-description {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.template-meta {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+}
+
+.template-priority {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.template-category {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    background: rgba(52, 152, 219, 0.1);
+    border-radius: 12px;
+}
+
+.template-schedule {
+    font-style: italic;
+    color: #27ae60;
+}
+
+.template-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.template-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.template-status.active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.template-status.inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Recurrence Pattern Builder */
+.recurrence-pattern-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid #dee2e6;
+}
+
+.recurrence-pattern-section h4 {
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+.recurrence-options {
+    margin: 15px 0;
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.weekdays-selector {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.weekday-option {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 12px;
+    background: white;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.weekday-option:hover {
+    border-color: #3498db;
+    background: #f8f9fa;
+}
+
+.weekday-option input:checked + span,
+.weekday-option:has(input:checked) {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+.weekday-option input[type="checkbox"] {
+    margin: 0;
+}
+
+/* Time Input Groups */
+.time-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.time-input-group input[type="time"] {
+    flex: 1;
+    max-width: 150px;
+}
+
+#times-of-day-container {
+    margin-bottom: 10px;
+}
+
+/* Recurrence Preview */
+.preview-section {
+    margin-top: 20px;
+    padding: 15px;
+    background: #e8f5e8;
+    border-radius: 6px;
+    border-left: 4px solid #27ae60;
+}
+
+.preview-section h5 {
+    margin-bottom: 10px;
+    color: #27ae60;
+}
+
+.recurrence-preview {
+    font-weight: 500;
+    color: #2c3e50;
+    font-style: italic;
+}
+
+/* Template Preview Modal Content */
+.template-preview-content {
+    padding: 20px 0;
+}
+
+.preview-template-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.preview-occurrences {
+    margin-top: 20px;
+}
+
+.preview-occurrences h4 {
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+.occurrence-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.occurrence-date {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.occurrence-time {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+/* System View Toggle */
+.system-view {
+    display: none;
+}
+
+.system-view.active {
+    display: block;
+}
+
+/* Navigation Updates */
+.main-nav {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.nav-btn {
+    padding: 8px 16px;
+    border: 2px solid #dee2e6;
+    background: white;
+    color: #6c757d;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.nav-btn:hover {
+    border-color: #3498db;
+    color: #3498db;
+}
+
+.nav-btn.active {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+/* Loading States */
+.templates-loading {
+    text-align: center;
+    padding: 40px;
+    color: #7f8c8d;
+}
+
+.templates-error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.templates-empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #7f8c8d;
+}
+
+/* Mobile Responsiveness for Templates */
+@media (max-width: 768px) {
+    .add-template-section {
+        flex-direction: column;
+    }
+    
+    .template-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .template-meta {
+        flex-wrap: wrap;
+    }
+    
+    .template-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .weekdays-selector {
+        justify-content: center;
+    }
+    
+    .time-input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .recurrence-pattern-section {
+        padding: 15px;
     }
 }
