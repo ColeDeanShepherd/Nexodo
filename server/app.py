@@ -9,9 +9,10 @@ from functools import wraps
 from .config import Config
 from .utils import success_response, error_response, no_content_response
 from .models import (
-    Base, Todo, Category, Deck, Flashcard, StudySession,
+    Base, Todo, Category, Deck, Flashcard, StudySession, RecurringTodoTemplate,
     validate_todo_data, validate_category_data, validate_deck_data,
-    validate_flashcard_data, validate_study_data, initialize_database
+    validate_flashcard_data, validate_study_data, validate_recurring_todo_template_data, 
+    initialize_database, generate_due_recurring_todos
 )
 
 # Initialize configuration
@@ -202,6 +203,133 @@ def delete_todo(todo_id: int) -> Tuple[str, int]:
     db.session.commit()
     
     return no_content_response()
+
+# Recurring Todo Template API Routes
+@todos_bp.route('/recurring-templates', methods=['GET'])
+@login_required
+def get_recurring_templates() -> Tuple[Response, int]:
+    """Get all recurring todo templates"""
+    templates = RecurringTodoTemplate.query.order_by(RecurringTodoTemplate.created_at.desc()).all()
+    return success_response([template.to_dict() for template in templates])
+
+@todos_bp.route('/recurring-templates', methods=['POST'])
+@login_required
+def create_recurring_template() -> Union[Tuple[Response, int], Tuple[str, int]]:
+    """Create a new recurring todo template"""
+    validated_data, error = validate_recurring_todo_template_data(request.get_json())
+    if error:
+        return error
+    
+    template = RecurringTodoTemplate.create_from_data(validated_data)
+    db.session.add(template)
+    db.session.commit()
+    
+    return success_response(template.to_dict(), 201)
+
+@todos_bp.route('/recurring-templates/<int:template_id>', methods=['GET'])
+@login_required
+def get_recurring_template(template_id: int) -> Tuple[Response, int]:
+    """Get a specific recurring todo template"""
+    template = RecurringTodoTemplate.query.get_or_404(template_id)
+    return success_response(template.to_dict())
+
+@todos_bp.route('/recurring-templates/<int:template_id>', methods=['PUT'])
+@login_required
+def update_recurring_template(template_id: int) -> Union[Tuple[Response, int], Tuple[str, int]]:
+    """Update a recurring todo template"""
+    template = RecurringTodoTemplate.query.get_or_404(template_id)
+    
+    validated_data, error = validate_recurring_todo_template_data(request.get_json(), for_update=True)
+    if error:
+        return error
+    
+    template.update_from_data(validated_data)
+    db.session.commit()
+    
+    return success_response(template.to_dict())
+
+@todos_bp.route('/recurring-templates/<int:template_id>', methods=['DELETE'])
+@login_required
+def delete_recurring_template(template_id: int) -> Tuple[str, int]:
+    """Delete a recurring todo template"""
+    template = RecurringTodoTemplate.query.get_or_404(template_id)
+    db.session.delete(template)
+    db.session.commit()
+    
+    return no_content_response()
+
+@todos_bp.route('/recurring-templates/<int:template_id>/generate', methods=['POST'])
+@login_required
+def generate_template_instances(template_id: int) -> Tuple[Response, int]:
+    """Manually generate todo instances from a template"""
+    template = RecurringTodoTemplate.query.get_or_404(template_id)
+    
+    data = request.get_json() or {}
+    days_ahead = data.get('days_ahead', 7)
+    max_instances = data.get('max_instances', 10)
+    
+    if not isinstance(days_ahead, int) or days_ahead < 1 or days_ahead > 365:
+        return error_response('days_ahead must be between 1 and 365')
+    
+    if not isinstance(max_instances, int) or max_instances < 1 or max_instances > 100:
+        return error_response('max_instances must be between 1 and 100')
+    
+    # Get upcoming occurrences
+    occurrences = template.get_upcoming_occurrences(days_ahead, max_instances)
+    
+    generated_todos = []
+    for occurrence in occurrences:
+        # Check if we already have a todo for this occurrence
+        existing = Todo.query.filter_by(
+            recurring_template_id=template.id,
+            scheduled_for=occurrence
+        ).first()
+        
+        if not existing:
+            todo = template.generate_todo_instance(occurrence, db.session)
+            if todo:
+                generated_todos.append(todo)
+    
+    db.session.commit()
+    
+    return success_response({
+        'generated_count': len(generated_todos),
+        'todos': [todo.to_dict() for todo in generated_todos]
+    })
+
+@todos_bp.route('/recurring-templates/<int:template_id>/preview', methods=['GET'])
+@login_required
+def preview_template_occurrences(template_id: int) -> Tuple[Response, int]:
+    """Preview upcoming occurrences for a template"""
+    template = RecurringTodoTemplate.query.get_or_404(template_id)
+    
+    days_ahead = request.args.get('days_ahead', 30, type=int)
+    max_count = request.args.get('max_count', 10, type=int)
+    
+    if days_ahead < 1 or days_ahead > 365:
+        return error_response('days_ahead must be between 1 and 365')
+    
+    if max_count < 1 or max_count > 100:
+        return error_response('max_count must be between 1 and 100')
+    
+    occurrences = template.get_upcoming_occurrences(days_ahead, max_count)
+    
+    return success_response({
+        'template': template.to_dict(),
+        'occurrences': [occ.isoformat() for occ in occurrences],
+        'next_occurrence': occurrences[0].isoformat() if occurrences else None
+    })
+
+@todos_bp.route('/generate-due-todos', methods=['POST'])
+@login_required
+def generate_due_todos() -> Tuple[Response, int]:
+    """Generate all due todo instances from active recurring templates"""
+    generated_todos = generate_due_recurring_todos(db.session)
+    
+    return success_response({
+        'generated_count': len(generated_todos),
+        'todos': [todo.to_dict() for todo in generated_todos[-10:]]  # Return last 10 for performance
+    })
 
 # Deck API Routes
 @decks_bp.route('/decks', methods=['GET'])

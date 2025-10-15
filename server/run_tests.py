@@ -7,8 +7,9 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Import the test module
+# Import the test modules
 from test_recurrence import *
+from test_recurring_todos import run_recurring_todo_tests
 
 def run_tests_with_summary():
     """Run tests and provide a summary"""
@@ -98,5 +99,45 @@ def run_tests_with_summary():
     return result.wasSuccessful()
 
 if __name__ == '__main__':
-    success = run_tests_with_summary()
+    print("🧪 RUNNING ALL TESTS")
+    print("=" * 60)
+    
+    # Run recurrence library tests
+    print("\n1️⃣ RECURRENCE LIBRARY TESTS")
+    recurrence_success = run_tests_with_summary()
+    
+    # Run recurring todo tests
+    print("\n2️⃣ RECURRING TODO TESTS")
+    recurring_todo_success = run_recurring_todo_tests()
+    
+    # Overall summary
+    print("\n" + "=" * 60)
+    print("🏁 OVERALL TEST SUMMARY")
+    
+    if recurrence_success and recurring_todo_success:
+        print("✅ All test suites passed!")
+        print("🚀 System is ready for production use!")
+    else:
+        print("❌ Some tests failed:")
+        if not recurrence_success:
+            print("  - Recurrence library tests failed")
+        if not recurring_todo_success:
+            print("  - Recurring todo tests failed")
+    
+    print("\n📋 FEATURES COVERED:")
+    covered_features = [
+        "✓ Recurrence pattern creation and validation",
+        "✓ Daily, weekly, monthly, yearly recurrences",
+        "✓ Multiple times per day support",
+        "✓ Recurring todo template management",
+        "✓ Automatic todo instance generation",
+        "✓ Template activation/deactivation",
+        "✓ API endpoints for templates",
+        "✓ Real-world scheduling scenarios"
+    ]
+    
+    for feature in covered_features:
+        print(f"  {feature}")
+    
+    sys.exit(0 if (recurrence_success and recurring_todo_success) else 1)
     sys.exit(0 if success else 1)

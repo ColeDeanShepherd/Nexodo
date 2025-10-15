@@ -1,14 +1,16 @@
 from flask import Response
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Union, Tuple
+import json
 
 # Import from our new modules
 from .config import Config
 from .utils import success_response, error_response, no_content_response
+from .recurrence import RecurrencePattern, RecurrenceCalculator
 
 # Create declarative base for models
 Base = declarative_base()
@@ -154,6 +156,54 @@ def validate_study_data(data: Optional[Dict[str, Any]]) -> Tuple[Optional[Dict[s
     
     return validated_data, None
 
+def validate_recurring_todo_template_data(data: Optional[Dict[str, Any]], for_update: bool = False) -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[Response, int]]]:
+    """Validate recurring todo template data, return (validated_data, error) tuple"""
+    if not data:
+        return None, error_response('No data provided')
+    
+    if not for_update and 'description' not in data:
+        return None, error_response('Description is required')
+    
+    validated_data = data.copy()
+    
+    # Validate description
+    if 'description' in data:
+        description = data['description'].strip()
+        if not description:
+            return None, error_response('Description cannot be empty')
+        validated_data['description'] = description
+    
+    # Validate recurrence pattern
+    if 'recurrence_pattern' in data:
+        if not isinstance(data['recurrence_pattern'], dict):
+            return None, error_response('Recurrence pattern must be a valid object')
+        
+        try:
+            # Test that we can create a RecurrencePattern from the data
+            RecurrencePattern.from_dict(data['recurrence_pattern'])
+            validated_data['recurrence_pattern'] = data['recurrence_pattern']
+        except (ValueError, KeyError, TypeError) as e:
+            return None, error_response(f'Invalid recurrence pattern: {str(e)}')
+    elif not for_update:
+        return None, error_response('Recurrence pattern is required')
+    
+    # Handle category validation
+    category_id = data.get('category_id')
+    if category_id and not Category.query.get(category_id):
+        return None, error_response('Invalid category')
+    
+    # Handle priority validation
+    priority = data.get('priority', 'low')
+    if priority not in ['high', 'medium', 'low']:
+        return None, error_response('Priority must be high, medium, or low')
+    validated_data['priority'] = priority
+    
+    # Validate boolean fields
+    if 'is_active' in data:
+        validated_data['is_active'] = bool(data['is_active'])
+    
+    return validated_data, None
+
 class Todo(Base):
     __tablename__ = 'todo'
     
@@ -165,9 +215,14 @@ class Todo(Base):
     priority = Column(String(10), default='low', nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Recurring todo template reference
+    recurring_template_id = Column(Integer, ForeignKey('recurring_todo_template.id'), nullable=True)
+    scheduled_for = Column(DateTime, nullable=True)  # When this instance was scheduled
 
-    # Relationship
+    # Relationships
     category = relationship("Category", back_populates="todos")
+    recurring_template = relationship("RecurringTodoTemplate", back_populates="instances")
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -179,7 +234,10 @@ class Todo(Base):
             'category': self.category.to_dict() if self.category else None,
             'priority': self.priority,
             'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'updated_at': self.updated_at.isoformat(),
+            'recurring_template_id': self.recurring_template_id,
+            'scheduled_for': self.scheduled_for.isoformat() if self.scheduled_for else None,
+            'is_recurring_instance': self.recurring_template_id is not None
         }
     
     @classmethod
@@ -256,6 +314,130 @@ class Todo(Base):
         
         return todos
 
+class RecurringTodoTemplate(Base):
+    __tablename__ = 'recurring_todo_template'
+    
+    id = Column(Integer, primary_key=True)
+    description = Column(String(200), nullable=False)
+    recurrence_pattern_json = Column(Text, nullable=False)  # JSON-serialized RecurrencePattern
+    category_id = Column(Integer, ForeignKey('category.id'), nullable=True)
+    priority = Column(String(10), default='low', nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    last_generated = Column(DateTime, nullable=True)  # Last time instances were generated
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    category = relationship("Category", back_populates="recurring_templates")
+    instances = relationship("Todo", back_populates="recurring_template", cascade="all, delete-orphan")
+
+    @property
+    def recurrence_pattern(self) -> RecurrencePattern:
+        """Get the RecurrencePattern object from JSON"""
+        return RecurrencePattern.from_dict(json.loads(self.recurrence_pattern_json))
+
+    @recurrence_pattern.setter
+    def recurrence_pattern(self, pattern: RecurrencePattern) -> None:
+        """Set the RecurrencePattern object as JSON"""
+        self.recurrence_pattern_json = json.dumps(pattern.to_dict())
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'description': self.description,
+            'recurrence_pattern': json.loads(self.recurrence_pattern_json),
+            'category_id': self.category_id,
+            'category': self.category.to_dict() if self.category else None,
+            'priority': self.priority,
+            'is_active': self.is_active,
+            'last_generated': self.last_generated.isoformat() if self.last_generated else None,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+            'instance_count': len(self.instances) if self.instances else 0
+        }
+
+    @classmethod
+    def create_from_data(cls, data: Dict[str, Any]) -> 'RecurringTodoTemplate':
+        """Create recurring todo template from validated data"""
+        template = cls(
+            description=data['description'],
+            category_id=data.get('category_id'),
+            priority=data.get('priority', 'low'),
+            is_active=data.get('is_active', True)
+        )
+        # Set recurrence pattern using the property setter
+        template.recurrence_pattern = RecurrencePattern.from_dict(data['recurrence_pattern'])
+        return template
+
+    def update_from_data(self, data: Dict[str, Any]) -> None:
+        """Update recurring todo template from data"""
+        if 'description' in data:
+            self.description = data['description']
+        if 'category_id' in data:
+            self.category_id = data['category_id']
+        if 'priority' in data:
+            self.priority = data['priority']
+        if 'is_active' in data:
+            self.is_active = data['is_active']
+        if 'recurrence_pattern' in data:
+            self.recurrence_pattern = RecurrencePattern.from_dict(data['recurrence_pattern'])
+        self.updated_at = datetime.utcnow()
+
+    def get_next_occurrence(self, after_date: Optional[datetime] = None) -> Optional[datetime]:
+        """Get the next occurrence after the given date"""
+        if not self.is_active:
+            return None
+        
+        if after_date is None:
+            after_date = datetime.utcnow()
+        
+        calculator = RecurrenceCalculator()
+        return calculator.get_next_occurrence(self.recurrence_pattern, after_date)
+
+    def get_upcoming_occurrences(self, days_ahead: int = 30, max_count: int = 10) -> List[datetime]:
+        """Get upcoming occurrences for this template"""
+        if not self.is_active:
+            return []
+        
+        start_date = datetime.utcnow()
+        end_date = start_date + timedelta(days=days_ahead)
+        
+        calculator = RecurrenceCalculator()
+        return calculator.get_occurrences_in_range(
+            self.recurrence_pattern,
+            start_date,
+            end_date,
+            max_count
+        )
+
+    def should_generate_instances(self, current_time: Optional[datetime] = None) -> bool:
+        """Check if new instances should be generated"""
+        if not self.is_active:
+            return False
+        
+        if current_time is None:
+            current_time = datetime.utcnow()
+        
+        next_occurrence = self.get_next_occurrence(self.last_generated or datetime.min)
+        return next_occurrence is not None and next_occurrence <= current_time
+
+    def generate_todo_instance(self, scheduled_for: datetime, db_session) -> Optional['Todo']:
+        """Generate a new todo instance for the given occurrence time"""
+        if not self.is_active:
+            return None
+        
+        # Create new todo instance
+        todo = Todo(
+            description=self.description,
+            category_id=self.category_id,
+            priority=self.priority,
+            recurring_template_id=self.id,
+            scheduled_for=scheduled_for
+        )
+        
+        db_session.add(todo)
+        return todo
+
 class Category(Base):
     __tablename__ = 'category'
     
@@ -264,8 +446,9 @@ class Category(Base):
     color = Column(String(7), nullable=False, default='#3498db')  # Hex color code
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
-    # Relationship with todos
+    # Relationships
     todos = relationship('Todo', back_populates='category')
+    recurring_templates = relationship('RecurringTodoTemplate', back_populates='category')
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -449,3 +632,45 @@ def initialize_database(db: SQLAlchemy) -> None:
         for category in default_categories:
             db.session.add(category)
         db.session.commit()
+
+def generate_due_recurring_todos(db_session) -> List[Todo]:
+    """
+    Generate todo instances from recurring templates that are due.
+    This function can be called periodically or on-demand.
+    """
+    current_time = datetime.utcnow()
+    active_templates = RecurringTodoTemplate.query.filter_by(is_active=True).all()
+    
+    generated_todos = []
+    
+    for template in active_templates:
+        if template.should_generate_instances(current_time):
+            # Get the next occurrence that should be generated
+            next_occurrence = template.get_next_occurrence(template.last_generated or datetime.min)
+            
+            while next_occurrence and next_occurrence <= current_time:
+                # Check if we already have a todo for this occurrence
+                existing = Todo.query.filter_by(
+                    recurring_template_id=template.id,
+                    scheduled_for=next_occurrence
+                ).first()
+                
+                if not existing:
+                    todo = template.generate_todo_instance(next_occurrence, db_session)
+                    if todo:
+                        generated_todos.append(todo)
+                
+                # Update last_generated timestamp
+                template.last_generated = next_occurrence
+                
+                # Get next occurrence after this one
+                next_occurrence = template.get_next_occurrence(next_occurrence)
+                
+                # Safety check to prevent infinite loops
+                if not next_occurrence or len(generated_todos) > 1000:
+                    break
+    
+    if generated_todos:
+        db_session.commit()
+    
+    return generated_todos
