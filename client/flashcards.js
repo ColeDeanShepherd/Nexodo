@@ -1,20 +1,9 @@
 // Flashcard System - Handles decks, flashcards, and study sessions
 
-// DOM Elements
-const createDeckBtn = document.getElementById('create-deck-btn');
-const studyDueBtn = document.getElementById('study-due-btn');
-const deckList = document.getElementById('deck-list');
-const createDeckModal = document.getElementById('create-deck-modal');
-const createDeckForm = document.getElementById('create-deck-form');
-const deckModal = document.getElementById('deck-modal');
-const flashcardModal = document.getElementById('flashcard-modal');
-const flashcardForm = document.getElementById('flashcard-form');
-const studyModal = document.getElementById('study-modal');
-
-// Statistics elements
-const totalDecksCount = document.getElementById('total-decks-count');
-const totalCardsCount = document.getElementById('total-cards-count');
-const dueCardsCount = document.getElementById('due-cards-count');
+// DOM Elements - will be initialized after DOM loads
+let createDeckBtn, studyDueBtn, deckList, createDeckModal, createDeckForm;
+let deckModal, flashcardModal, flashcardForm, studyModal;
+let totalDecksCount, totalCardsCount, dueCardsCount;
 
 // State
 let decks = [];
@@ -27,11 +16,37 @@ let studySession = {
 
 // Initialize flashcard system
 function initFlashcardSystem() {
+    // Initialize DOM elements
+    createDeckBtn = document.getElementById('create-deck-btn');
+    studyDueBtn = document.getElementById('study-due-btn');
+    deckList = document.getElementById('deck-list');
+    createDeckModal = document.getElementById('create-deck-modal');
+    createDeckForm = document.getElementById('create-deck-form');
+    deckModal = document.getElementById('deck-modal');
+    flashcardModal = document.getElementById('flashcard-modal');
+    flashcardForm = document.getElementById('flashcard-form');
+    studyModal = document.getElementById('study-modal');
+    totalDecksCount = document.getElementById('total-decks-count');
+    totalCardsCount = document.getElementById('total-cards-count');
+    dueCardsCount = document.getElementById('due-cards-count');
+    
+    console.log('DOM elements initialized:', {
+        createDeckBtn: !!createDeckBtn,
+        deckList: !!deckList,
+        totalDecksCount: !!totalDecksCount
+    });
+    
     setupFlashcardEventListeners();
 }
 
 // Event Listeners
 function setupFlashcardEventListeners() {
+    // Logout button
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
+    
     // Flashcard controls
     if (createDeckBtn) {
         createDeckBtn.addEventListener('click', openCreateDeckModal);
@@ -145,7 +160,9 @@ async function loadFlashcardData() {
 
 async function loadDecks() {
     try {
+        console.log('Loading decks...');
         decks = await apiCall('/decks');
+        console.log('Decks loaded:', decks);
         renderDecks();
     } catch (error) {
         console.error('Failed to load decks:', error);
@@ -592,6 +609,25 @@ async function handleCreateFlashcard(e) {
         console.error(`Failed to ${isEdit ? 'update' : 'create'} flashcard:`, error);
     }
 }
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('Flashcards page initializing...');
+    
+    // Check authentication status first
+    const isAuthenticated = await checkAuth();
+    console.log('Authentication status:', isAuthenticated);
+    if (!isAuthenticated) {
+        window.location.href = '/login.html';
+        return;
+    }
+    
+    console.log('Setting up flashcard system...');
+    initFlashcardSystem();
+    
+    console.log('Loading flashcard data...');
+    loadFlashcardData();
+});
 
 // Make functions globally available
 window.loadFlashcardData = loadFlashcardData;
