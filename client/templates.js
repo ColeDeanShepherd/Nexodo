@@ -171,6 +171,7 @@ function switchToTemplatesView() {
     // Show templates system
     if (templatesSystem) {
         templatesSystem.classList.add('active');
+        templatesSystem.classList.remove('hidden');
     }
     
     // Update navigation buttons
