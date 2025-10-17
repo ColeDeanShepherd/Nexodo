@@ -196,26 +196,49 @@ function setupEventListeners() {
 
 // Navigation Functions
 function switchToView(view) {
-    // Hide all system views
+    // Get all system views
     const todoSystem = document.getElementById('todo-system');
     const templatesSystem = document.getElementById('templates-system');
+    const flashcardSystem = document.getElementById('flashcard-system');
     
-    if (todoSystem) todoSystem.classList.remove('active');
-    if (templatesSystem) templatesSystem.classList.remove('active');
+    // Get all navigation buttons
+    const navTodosBtn = document.getElementById('nav-todos');
+    const navTemplatesBtn = document.getElementById('nav-templates');
+    const navFlashcardsBtn = document.getElementById('nav-flashcards');
+    
+    // Hide all system views and remove active from all nav buttons
+    if (todoSystem) {
+        todoSystem.classList.remove('active');
+        todoSystem.classList.add('hidden');
+    }
+    if (templatesSystem) {
+        templatesSystem.classList.remove('active');
+        templatesSystem.classList.add('hidden');
+    }
+    if (flashcardSystem) {
+        flashcardSystem.classList.remove('active');
+        flashcardSystem.classList.add('hidden');
+    }
     
     // Remove active class from all nav buttons
-    const navButtons = document.querySelectorAll('.nav-btn');
-    navButtons.forEach(btn => btn.classList.remove('active'));
+    if (navTodosBtn) navTodosBtn.classList.remove('active');
+    if (navTemplatesBtn) navTemplatesBtn.classList.remove('active');
+    if (navFlashcardsBtn) navFlashcardsBtn.classList.remove('active');
     
     // Show selected view and activate nav button
     switch (view) {
         case 'todos':
-            if (todoSystem) todoSystem.classList.add('active');
+            if (todoSystem) {
+                todoSystem.classList.add('active');
+                todoSystem.classList.remove('hidden');
+            }
             if (navTodosBtn) navTodosBtn.classList.add('active');
             break;
         case 'templates':
-            if (templatesSystem) templatesSystem.classList.add('active');
-            const navTemplatesBtn = document.getElementById('nav-templates');
+            if (templatesSystem) {
+                templatesSystem.classList.add('active');
+                templatesSystem.classList.remove('hidden');
+            }
             if (navTemplatesBtn) navTemplatesBtn.classList.add('active');
             // Load templates when switching to templates view
             if (window.loadTemplates) {
@@ -223,8 +246,15 @@ function switchToView(view) {
             }
             break;
         case 'flashcards':
-            // Handle flashcards navigation (redirect)
-            window.location.href = '/flashcards';
+            if (flashcardSystem) {
+                flashcardSystem.classList.add('active');
+                flashcardSystem.classList.remove('hidden');
+            }
+            if (navFlashcardsBtn) navFlashcardsBtn.classList.add('active');
+            // Load flashcard data when switching to flashcards view
+            if (window.loadFlashcardData) {
+                window.loadFlashcardData();
+            }
             break;
     }
 }
