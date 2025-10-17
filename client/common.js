@@ -102,19 +102,22 @@ function escapeHtml(text) {
 }
 
 // Navigation Functions
-let currentView = 'todos'; // 'todos' or 'flashcards'
+let currentView = 'todos'; // 'todos', 'flashcards', or 'templates'
 
 function switchToView(view) {
     currentView = view;
     
     const navTodosBtn = document.getElementById('nav-todos');
     const navFlashcardsBtn = document.getElementById('nav-flashcards');
+    const navTemplatesBtn = document.getElementById('nav-templates');
     const todoSystem = document.getElementById('todo-system');
     const flashcardSystem = document.getElementById('flashcard-system');
+    const templatesSystem = document.getElementById('templates-system');
     
     // Update navigation buttons
     if (navTodosBtn) navTodosBtn.classList.toggle('active', view === 'todos');
     if (navFlashcardsBtn) navFlashcardsBtn.classList.toggle('active', view === 'flashcards');
+    if (navTemplatesBtn) navTemplatesBtn.classList.toggle('active', view === 'templates');
     
     // Show/hide system views
     if (todoSystem) {
@@ -125,9 +128,17 @@ function switchToView(view) {
         flashcardSystem.classList.toggle('active', view === 'flashcards');
         flashcardSystem.classList.toggle('hidden', view !== 'flashcards');
     }
+    if (templatesSystem) {
+        templatesSystem.classList.toggle('active', view === 'templates');
+        templatesSystem.classList.toggle('hidden', view !== 'templates');
+    }
 
+    // Load data when switching to specific views
     if (view === 'flashcards' && window.loadFlashcardData) {
         window.loadFlashcardData();
+    }
+    if (view === 'templates' && window.loadTemplates) {
+        window.loadTemplates();
     }
 }
 
