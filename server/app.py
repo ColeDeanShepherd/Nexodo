@@ -282,7 +282,7 @@ def generate_template_instances(template_id: int) -> Tuple[Response, int]:
         # Check if we already have a todo for this occurrence
         existing = Todo.query.filter_by(
             recurring_template_id=template.id,
-            scheduled_for=occurrence
+            deadline=occurrence
         ).first()
         
         if not existing:

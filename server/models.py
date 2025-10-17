@@ -218,7 +218,6 @@ class Todo(Base):
     
     # Recurring todo template reference
     recurring_template_id = Column(Integer, ForeignKey('recurring_todo_template.id'), nullable=True)
-    scheduled_for = Column(DateTime, nullable=True)  # When this instance was scheduled
 
     # Relationships
     category = relationship("Category", back_populates="todos")
@@ -236,7 +235,6 @@ class Todo(Base):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'recurring_template_id': self.recurring_template_id,
-            'scheduled_for': self.scheduled_for.isoformat() if self.scheduled_for else None,
             'is_recurring_instance': self.recurring_template_id is not None
         }
     
@@ -421,18 +419,18 @@ class RecurringTodoTemplate(Base):
         next_occurrence = self.get_next_occurrence(self.last_generated or datetime.min)
         return next_occurrence is not None and next_occurrence <= current_time
 
-    def generate_todo_instance(self, scheduled_for: datetime, db_session) -> Optional['Todo']:
+    def generate_todo_instance(self, occurrence_time: datetime, db_session) -> Optional['Todo']:
         """Generate a new todo instance for the given occurrence time"""
         if not self.is_active:
             return None
         
-        # Create new todo instance
+        # Create new todo instance with the occurrence time as the deadline
         todo = Todo(
             description=self.description,
             category_id=self.category_id,
             priority=self.priority,
             recurring_template_id=self.id,
-            scheduled_for=scheduled_for
+            deadline=occurrence_time
         )
         
         db_session.add(todo)
@@ -652,7 +650,7 @@ def generate_due_recurring_todos(db_session) -> List[Todo]:
                 # Check if we already have a todo for this occurrence
                 existing = Todo.query.filter_by(
                     recurring_template_id=template.id,
-                    scheduled_for=next_occurrence
+                    deadline=next_occurrence
                 ).first()
                 
                 if not existing:
