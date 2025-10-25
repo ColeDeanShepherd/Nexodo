@@ -4,6 +4,104 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Login - Nexodo</title>
+	<style>
+		/* CSS Custom Properties for theming */
+		:root {
+			/* Light theme colors */
+			--primary-color: #3498db;
+			--primary-color-hover: #2980b9;
+			--secondary-color: #ecf0f1;
+			--secondary-color-hover: #d5dbdb;
+			--danger-color: #e74c3c;
+			--danger-color-hover: #c0392b;
+			--success-color: #27ae60;
+			--success-color-hover: #229954;
+			--warning-color: #f39c12;
+			--text-color: #333;
+			--text-muted: #7f8c8d;
+			--text-dark: #2c3e50;
+			--background-color: #f5f7fa;
+			--surface-color: #ffffff;
+			--border-color: #e1e8ed;
+			--modal-backdrop: rgba(0, 0, 0, 0.5);
+			--shadow-color: rgba(0, 0, 0, 0.1);
+			--shadow-hover: rgba(0, 0, 0, 0.15);
+		}
+
+		/* Dark theme colors */
+		@media (prefers-color-scheme: dark) {
+			:root {
+				--primary-color: #3498db;
+				--primary-color-hover: #5dade2;
+				--secondary-color: #34495e;
+				--secondary-color-hover: #4a6278;
+				--danger-color: #e74c3c;
+				--danger-color-hover: #ec7063;
+				--success-color: #27ae60;
+				--success-color-hover: #58d68d;
+				--warning-color: #f39c12;
+				--text-color: #ecf0f1;
+				--text-muted: #bdc3c7;
+				--text-dark: #ecf0f1;
+				--background-color: #1a1a1a;
+				--surface-color: #2c3e50;
+				--border-color: #34495e;
+				--modal-backdrop: rgba(0, 0, 0, 0.8);
+				--shadow-color: rgba(0, 0, 0, 0.3);
+				--shadow-hover: rgba(0, 0, 0, 0.4);
+			}
+		}
+
+		/* Dark theme override class (for manual toggle) */
+		[data-theme="dark"] {
+			--primary-color: #3498db;
+			--primary-color-hover: #5dade2;
+			--secondary-color: #34495e;
+			--secondary-color-hover: #4a6278;
+			--danger-color: #e74c3c;
+			--danger-color-hover: #ec7063;
+			--success-color: #27ae60;
+			--success-color-hover: #58d68d;
+			--warning-color: #f39c12;
+			--text-color: #ecf0f1;
+			--text-muted: #bdc3c7;
+			--text-dark: #ecf0f1;
+			--background-color: #1a1a1a;
+			--surface-color: #2c3e50;
+			--border-color: #34495e;
+			--modal-backdrop: rgba(0, 0, 0, 0.8);
+			--shadow-color: rgba(0, 0, 0, 0.3);
+			--shadow-hover: rgba(0, 0, 0, 0.4);
+		}
+
+		/* Light theme override class (for manual toggle) */
+		[data-theme="light"] {
+			--primary-color: #3498db;
+			--primary-color-hover: #2980b9;
+			--secondary-color: #ecf0f1;
+			--secondary-color-hover: #d5dbdb;
+			--danger-color: #e74c3c;
+			--danger-color-hover: #c0392b;
+			--success-color: #27ae60;
+			--success-color-hover: #229954;
+			--warning-color: #f39c12;
+			--text-color: #333;
+			--text-muted: #7f8c8d;
+			--text-dark: #2c3e50;
+			--background-color: #f5f7fa;
+			--surface-color: #ffffff;
+			--border-color: #e1e8ed;
+			--modal-backdrop: rgba(0, 0, 0, 0.5);
+			--shadow-color: rgba(0, 0, 0, 0.1);
+			--shadow-hover: rgba(0, 0, 0, 0.15);
+		}
+
+		body {
+			margin: 0;
+			padding: 0;
+			transition: background-color 0.3s ease, color 0.3s ease;
+		}
+	</style>
 </head>
 <body>
 	<div id="app"></div>

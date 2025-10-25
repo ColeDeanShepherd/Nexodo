@@ -19,8 +19,9 @@
 		box-sizing: border-box;
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 		line-height: 1.6;
-		color: #333;
-		background-color: #f5f7fa;
+		color: var(--text-color, #333);
+		background-color: var(--background-color, #f5f7fa);
+		transition: background-color 0.3s ease, color 0.3s ease;
 	}
 
 	:global(#app) {
