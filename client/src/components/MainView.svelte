@@ -1,9 +1,200 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import WorkCheatSheet from './WorkCheatSheet.svelte';
 	
 	// Props received from MainApp
-	export let currentView: string;
 	export let globalFunctions: any;
+	
+	// Internal state for view management
+	let currentView = 'todos';
+	
+	onMount(() => {
+		// Initialize authentication check
+		if (globalFunctions.checkAuth) {
+			globalFunctions.checkAuth().then((isAuthenticated: boolean) => {
+				if (!isAuthenticated) {
+					window.location.href = '/login.html';
+					return;
+				}
+			});
+		}
+
+		// Initialize the app after scripts are loaded
+		if (globalFunctions.loadCategories) {
+			globalFunctions.loadCategories().then(() => {
+				// Load todos after categories are loaded
+				if (globalFunctions.loadTodos) {
+					globalFunctions.loadTodos();
+				}
+				if (globalFunctions.setFilter) {
+					globalFunctions.setFilter('active');
+				}
+			});
+		}
+
+		// Set up event listeners that the original script would have set up
+		if (globalFunctions.setupEventListeners) {
+			globalFunctions.setupEventListeners();
+		}
+
+		// Set up additional event listeners for elements that don't have Svelte handlers
+		setupAdditionalEventListeners();
+
+		// Initialize flashcard system if available
+		if ((window as any).initFlashcardSystem) {
+			(window as any).initFlashcardSystem();
+		}
+	});
+
+	function setupAdditionalEventListeners() {
+		// Handle clicks on dynamically generated content using event delegation
+		document.addEventListener('click', (e: any) => {
+			const target = e.target;
+			
+			// Handle todo checkbox changes
+			if (target.matches('.todo-checkbox')) {
+				const onchangeAttr = target.getAttribute('onchange');
+				if (onchangeAttr) {
+					const id = onchangeAttr.match(/\d+/)?.[0];
+					if (id && globalFunctions.handleToggleComplete) {
+						globalFunctions.handleToggleComplete(parseInt(id));
+					}
+				}
+			}
+			
+			// Handle edit todo buttons
+			if (target.matches('[onclick*="openEditModal"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && globalFunctions.openEditModal) {
+						globalFunctions.openEditModal(parseInt(id));
+					}
+				}
+			}
+			
+			// Handle delete todo buttons
+			if (target.matches('[onclick*="handleDeleteTodo"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && globalFunctions.handleDeleteTodo) {
+						globalFunctions.handleDeleteTodo(parseInt(id));
+					}
+				}
+			}
+
+			// Handle category actions
+			if (target.matches('[onclick*="editCategory"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && globalFunctions.editCategory) {
+						globalFunctions.editCategory(parseInt(id));
+					}
+				}
+			}
+			
+			if (target.matches('[onclick*="deleteCategory"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && globalFunctions.deleteCategory) {
+						globalFunctions.deleteCategory(parseInt(id));
+					}
+				}
+			}
+
+			// Handle template actions
+			if (target.matches('[onclick*="editTemplate"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && (window as any).editTemplate) {
+						(window as any).editTemplate(parseInt(id));
+					}
+				}
+			}
+
+			if (target.matches('[onclick*="confirmDeleteTemplate"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && (window as any).confirmDeleteTemplate) {
+						(window as any).confirmDeleteTemplate(parseInt(id));
+					}
+				}
+			}
+
+			if (target.matches('[onclick*="generateInstancesFromTemplate"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && (window as any).generateInstancesFromTemplate) {
+						(window as any).generateInstancesFromTemplate(parseInt(id));
+					}
+				}
+			}
+
+			if (target.matches('[onclick*="previewTemplateModal"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && (window as any).previewTemplateModal) {
+						(window as any).previewTemplateModal(parseInt(id));
+					}
+				}
+			}
+		});
+	}
+
+	// Navigation functions
+	function handleNavTodos() {
+		currentView = 'todos';
+		if (globalFunctions.switchToView) {
+			globalFunctions.switchToView('todos');
+		}
+	}
+
+	function handleNavTemplates() {
+		currentView = 'templates';
+		if (globalFunctions.switchToView) {
+			globalFunctions.switchToView('templates');
+		}
+	}
+
+	function handleNavCheatSheet() {
+		currentView = 'cheatsheet';
+		// Hide all other views manually since this view is not handled by the original switchToView
+		const todoSystem = document.getElementById('todo-system');
+		const templatesSystem = document.getElementById('templates-system');
+		const flashcardSystem = document.getElementById('flashcard-system');
+		
+		if (todoSystem) {
+			todoSystem.classList.remove('active');
+			todoSystem.classList.add('hidden');
+		}
+		if (templatesSystem) {
+			templatesSystem.classList.remove('active');
+			templatesSystem.classList.add('hidden');
+		}
+		if (flashcardSystem) {
+			flashcardSystem.classList.remove('active');
+			flashcardSystem.classList.add('hidden');
+		}
+
+		// Update navigation button states
+		const navTodosBtn = document.getElementById('nav-todos');
+		const navTemplatesBtn = document.getElementById('nav-templates');
+		const navFlashcardsBtn = document.getElementById('nav-flashcards');
+		
+		if (navTodosBtn) navTodosBtn.classList.remove('active');
+		if (navTemplatesBtn) navTemplatesBtn.classList.remove('active');
+		if (navFlashcardsBtn) navFlashcardsBtn.classList.remove('active');
+	}
+
+	// Export navigation functions so MainApp can call them
+	export { handleNavTodos, handleNavTemplates, handleNavCheatSheet };
 	
 	// Event handlers for modal and form interactions
 	function handleAddTodo() {
