@@ -8,6 +8,9 @@
 	let globalFunctions: any = {};
 
 	onMount(() => {
+		// Set a flag to prevent the original DOMContentLoaded handler from running
+		(window as any).svelteControlled = true;
+
 		// Import and initialize all the existing JavaScript files sequentially
 		// We need to load them in order to ensure dependencies are available
 		const scripts = [
@@ -34,14 +37,159 @@
 				openAddModal: (window as any).openAddModal,
 				openCategoriesModal: (window as any).openCategoriesModal,
 				logout: (window as any).logout,
+				loadTodos: (window as any).loadTodos,
+				loadCategories: (window as any).loadCategories,
+				setFilter: (window as any).setFilter,
+				handleToggleComplete: (window as any).handleToggleComplete,
+				openEditModal: (window as any).openEditModal,
+				handleDeleteTodo: (window as any).handleDeleteTodo,
+				editCategory: (window as any).editCategory,
+				deleteCategory: (window as any).deleteCategory,
+				checkAuth: (window as any).checkAuth,
+				setupEventListeners: (window as any).setupEventListeners,
 				// Add other functions as needed
 			};
+
+			// Initialize authentication check
+			if (globalFunctions.checkAuth) {
+				const isAuthenticated = await globalFunctions.checkAuth();
+				if (!isAuthenticated) {
+					window.location.href = '/login.html';
+					return;
+				}
+			}
+
+			// Initialize the app after scripts are loaded
+			if (globalFunctions.loadCategories) {
+				await globalFunctions.loadCategories();
+			}
+			if (globalFunctions.loadTodos) {
+				globalFunctions.loadTodos();
+			}
+			if (globalFunctions.setFilter) {
+				globalFunctions.setFilter('active');
+			}
+
+			// Set up event listeners that the original script would have set up
+			if (globalFunctions.setupEventListeners) {
+				globalFunctions.setupEventListeners();
+			}
+
+			// Set up additional event listeners for elements that don't have Svelte handlers
+			setupAdditionalEventListeners();
+
+			// Initialize flashcard system if available
+			if ((window as any).initFlashcardSystem) {
+				(window as any).initFlashcardSystem();
+			}
 		}
 
 		loadScriptsSequentially().catch(error => {
 			console.error('Failed to load scripts:', error);
 		});
 	});
+
+	function setupAdditionalEventListeners() {
+		// Handle clicks on dynamically generated content using event delegation
+		document.addEventListener('click', (e: any) => {
+			const target = e.target;
+			
+			// Handle todo checkbox changes
+			if (target.matches('.todo-checkbox')) {
+				const onchangeAttr = target.getAttribute('onchange');
+				if (onchangeAttr) {
+					const id = onchangeAttr.match(/\d+/)?.[0];
+					if (id && globalFunctions.handleToggleComplete) {
+						globalFunctions.handleToggleComplete(parseInt(id));
+					}
+				}
+			}
+			
+			// Handle edit todo buttons
+			if (target.matches('[onclick*="openEditModal"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && globalFunctions.openEditModal) {
+						globalFunctions.openEditModal(parseInt(id));
+					}
+				}
+			}
+			
+			// Handle delete todo buttons
+			if (target.matches('[onclick*="handleDeleteTodo"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && globalFunctions.handleDeleteTodo) {
+						globalFunctions.handleDeleteTodo(parseInt(id));
+					}
+				}
+			}
+
+			// Handle category actions
+			if (target.matches('[onclick*="editCategory"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && globalFunctions.editCategory) {
+						globalFunctions.editCategory(parseInt(id));
+					}
+				}
+			}
+			
+			if (target.matches('[onclick*="deleteCategory"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && globalFunctions.deleteCategory) {
+						globalFunctions.deleteCategory(parseInt(id));
+					}
+				}
+			}
+
+			// Handle template actions
+			if (target.matches('[onclick*="editTemplate"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && (window as any).editTemplate) {
+						(window as any).editTemplate(parseInt(id));
+					}
+				}
+			}
+
+			if (target.matches('[onclick*="confirmDeleteTemplate"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && (window as any).confirmDeleteTemplate) {
+						(window as any).confirmDeleteTemplate(parseInt(id));
+					}
+				}
+			}
+
+			if (target.matches('[onclick*="generateInstancesFromTemplate"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && (window as any).generateInstancesFromTemplate) {
+						(window as any).generateInstancesFromTemplate(parseInt(id));
+					}
+				}
+			}
+
+			if (target.matches('[onclick*="previewTemplateModal"]')) {
+				const onclickAttr = target.getAttribute('onclick');
+				if (onclickAttr) {
+					const id = onclickAttr.match(/\d+/)?.[0];
+					if (id && (window as any).previewTemplateModal) {
+						(window as any).previewTemplateModal(parseInt(id));
+					}
+				}
+			}
+		});
+	}
 
 	// Event handlers
 	function handleNavTodos() {
@@ -81,18 +229,16 @@
 	}
 
 	function handleOpenAddTemplate() {
-		// This will be handled by the templates.js script
-		const openBtn = document.getElementById('open-add-template-modal');
-		if (openBtn) {
-			openBtn.click();
+		// Call the function from templates.js
+		if ((window as any).openAddTemplateModal) {
+			(window as any).openAddTemplateModal();
 		}
 	}
 
 	function handleGenerateDueTodos() {
-		// This will be handled by the templates.js script
-		const generateBtn = document.getElementById('generate-due-todos-btn');
-		if (generateBtn) {
-			generateBtn.click();
+		// Call the function from templates.js
+		if ((window as any).generateDueTodos) {
+			(window as any).generateDueTodos();
 		}
 	}
 </script>

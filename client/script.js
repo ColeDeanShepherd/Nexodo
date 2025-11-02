@@ -49,6 +49,11 @@ let currentCategoryFilter = ''; // category ID or empty string for all
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', async () => {
+    // Skip initialization if Svelte is controlling the app
+    if (window.svelteControlled) {
+        return;
+    }
+    
     // Check authentication status first
     const isAuthenticated = await checkAuth();
     if (!isAuthenticated) {
