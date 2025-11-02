@@ -1,11 +1,36 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Login from './Login.svelte';
+	import MainApp from './components/MainApp.svelte';
 	
-	// For now, we'll just show the login component
-	// Later this can be expanded to handle routing between login and main app
+	let isAuthenticated = false;
+	let isLoading = true;
+
+	onMount(async () => {
+		// Check authentication status
+		try {
+			const response = await fetch('/api/auth-status');
+			const data = await response.json();
+			isAuthenticated = data.authenticated;
+		} catch (error) {
+			console.error('Auth check failed:', error);
+			isAuthenticated = false;
+		}
+		isLoading = false;
+	});
+
+	function handleLogin() {
+		isAuthenticated = true;
+	}
 </script>
 
-<Login />
+{#if isLoading}
+	<div class="loading">Loading...</div>
+{:else if isAuthenticated}
+	<MainApp />
+{:else}
+	<Login on:login={handleLogin} />
+{/if}
 
 <style>
 	:global(html, body) {

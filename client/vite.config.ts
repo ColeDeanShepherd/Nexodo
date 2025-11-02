@@ -6,7 +6,10 @@ export default defineConfig({
   plugins: [svelte()],
   build: {
     rollupOptions: {
-      input: 'login.html'
+      input: {
+        login: 'login.html',
+        main: 'index.html'
+      }
     }
   },
   server: {

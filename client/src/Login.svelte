@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
+
+	const dispatch = createEventDispatcher();
 
 	let password: string = '';
 	let errorMessage: string = '';
@@ -68,8 +70,8 @@
 			const data = await response.json();
 
 			if (response.ok) {
-				// Login successful, redirect to main app
-				window.location.href = '/';
+				// Login successful, dispatch event to parent
+				dispatch('login');
 			} else {
 				showErrorMessage(data.error || 'Login failed');
 			}
