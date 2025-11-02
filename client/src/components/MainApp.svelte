@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import WorkCheatSheet from './WorkCheatSheet.svelte';
 	import '../../styles.css';
 
 	let currentView = 'todos';
@@ -206,6 +207,36 @@
 		}
 	}
 
+	function handleNavCheatSheet() {
+		currentView = 'cheatsheet';
+		// Hide all other views manually since this view is not handled by the original switchToView
+		const todoSystem = document.getElementById('todo-system');
+		const templatesSystem = document.getElementById('templates-system');
+		const flashcardSystem = document.getElementById('flashcard-system');
+		
+		if (todoSystem) {
+			todoSystem.classList.remove('active');
+			todoSystem.classList.add('hidden');
+		}
+		if (templatesSystem) {
+			templatesSystem.classList.remove('active');
+			templatesSystem.classList.add('hidden');
+		}
+		if (flashcardSystem) {
+			flashcardSystem.classList.remove('active');
+			flashcardSystem.classList.add('hidden');
+		}
+
+		// Update navigation button states
+		const navTodosBtn = document.getElementById('nav-todos');
+		const navTemplatesBtn = document.getElementById('nav-templates');
+		const navFlashcardsBtn = document.getElementById('nav-flashcards');
+		
+		if (navTodosBtn) navTodosBtn.classList.remove('active');
+		if (navTemplatesBtn) navTemplatesBtn.classList.remove('active');
+		if (navFlashcardsBtn) navFlashcardsBtn.classList.remove('active');
+	}
+
 	function handleNavFlashcards() {
 		window.location.href = '/flashcards';
 	}
@@ -250,6 +281,7 @@
 			<nav class="main-nav">
 				<button id="nav-todos" class="nav-btn" class:active={currentView === 'todos'} on:click={handleNavTodos}>📝 Todos</button>
 				<button id="nav-templates" class="nav-btn" class:active={currentView === 'templates'} on:click={handleNavTemplates}>🔄 Templates</button>
+				<button id="nav-cheatsheet" class="nav-btn" class:active={currentView === 'cheatsheet'} on:click={handleNavCheatSheet}>📋 Cheat Sheet</button>
 				<button id="nav-flashcards" class="nav-btn" on:click={handleNavFlashcards}>🃏 Flashcards</button>
 			</nav>
 		</div>
@@ -350,7 +382,12 @@
 					<p>No recurring templates yet. Create one above to schedule recurring todos!</p>
 				</div>
 			</section>
-		</div>
+		<!-- Work Cheat Sheet System -->
+		{#if currentView === 'cheatsheet'}
+			<div id="cheatsheet-system" class="system-view active">
+				<WorkCheatSheet />
+			</div>
+		{/if}
 	</main>
 
 	<!-- Todo Modals -->
