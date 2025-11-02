@@ -62,6 +62,7 @@ todos_bp = Blueprint('todos', __name__, url_prefix='/api')
 decks_bp = Blueprint('decks', __name__, url_prefix='/api')
 flashcards_bp = Blueprint('flashcards', __name__, url_prefix='/api')
 study_bp = Blueprint('study', __name__, url_prefix='/api')
+key_value_bp = Blueprint('key_value', __name__, url_prefix='/api')
 client_bp = Blueprint('client', __name__)
 
 # Health check endpoint
@@ -572,14 +573,14 @@ def get_study_stats() -> Tuple[Response, int]:
     })
 
 # Key-Value Store API
-@app.route('/api/key-value', methods=['GET'])
+@key_value_bp.route('/api/key-value', methods=['GET'])
 @login_required
 def get_key_values() -> Response:
     """Get all key-value pairs"""
     key_values = KeyValue.query.order_by(KeyValue.key).all()
     return success_response([kv.to_dict() for kv in key_values])
 
-@app.route('/api/key-value/<string:key>', methods=['GET'])
+@key_value_bp.route('/api/key-value/<string:key>', methods=['GET'])
 @login_required
 def get_key_value(key: str) -> Union[Response, Tuple[Response, int]]:
     """Get a specific key-value pair by key"""
@@ -589,7 +590,7 @@ def get_key_value(key: str) -> Union[Response, Tuple[Response, int]]:
     
     return success_response(key_value.to_dict())
 
-@app.route('/api/key-value/<string:key>', methods=['PUT'])
+@key_value_bp.route('/api/key-value/<string:key>', methods=['PUT'])
 @login_required
 def set_key_value(key: str) -> Tuple[Response, int]:
     """Set a key-value pair (upsert operation)"""
@@ -617,7 +618,7 @@ def set_key_value(key: str) -> Tuple[Response, int]:
         db.session.rollback()
         return error_response(f'Failed to set key-value: {str(e)}', 500)
 
-@app.route('/api/key-value', methods=['POST'])
+@key_value_bp.route('/api/key-value', methods=['POST'])
 @login_required
 def create_key_value() -> Tuple[Response, int]:
     """Create a new key-value pair"""
@@ -646,7 +647,7 @@ def create_key_value() -> Tuple[Response, int]:
         db.session.rollback()
         return error_response(f'Failed to create key-value: {str(e)}', 500)
 
-@app.route('/api/key-value/<string:key>', methods=['DELETE'])
+@key_value_bp.route('/api/key-value/<string:key>', methods=['DELETE'])
 @login_required
 def delete_key_value(key: str) -> Union[Tuple[str, int], Tuple[Response, int]]:
     """Delete a key-value pair"""
@@ -662,7 +663,7 @@ def delete_key_value(key: str) -> Union[Tuple[str, int], Tuple[Response, int]]:
         db.session.rollback()
         return error_response(f'Failed to delete key-value: {str(e)}', 500)
 
-@app.route('/api/key-value/bulk', methods=['POST'])
+@key_value_bp.route('/api/key-value/bulk', methods=['POST'])
 @login_required
 def bulk_set_key_values() -> Tuple[Response, int]:
     """Set multiple key-value pairs at once"""
