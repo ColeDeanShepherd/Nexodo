@@ -744,6 +744,7 @@ app.register_blueprint(decks_bp)
 app.register_blueprint(flashcards_bp)
 app.register_blueprint(study_bp)
 app.register_blueprint(client_bp)
+app.register_blueprint(key_value_bp)
 
 # Initialize Flask-SQLAlchemy with our models
 db = SQLAlchemy(app, model_class=Base)
