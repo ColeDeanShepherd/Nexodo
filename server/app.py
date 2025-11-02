@@ -94,6 +94,71 @@ def auth_status() -> Tuple[Response, int]:
     clear_expired_session()
     return success_response({'authenticated': is_session_valid()})
 
+@auth_bp.route('/sql-query', methods=['POST'])
+@login_required
+def execute_sql_query() -> Tuple[Response, int]:
+    """Execute arbitrary SQL query against the database"""
+    data = request.get_json()
+    
+    if not data or 'query' not in data:
+        return error_response('Query is required', 400)
+    
+    query = data['query'].strip()
+    
+    if not query:
+        return error_response('Query cannot be empty', 400)
+    
+    try:
+        # Execute the query
+        result = db.session.execute(db.text(query))
+        
+        # Handle different types of queries
+        if query.upper().startswith(('SELECT', 'WITH', 'EXPLAIN', 'SHOW', 'DESCRIBE', 'DESC')):
+            # For SELECT queries, fetch and return results
+            rows = result.fetchall()
+            
+            # Convert rows to list of dictionaries
+            if rows:
+                # Get column names
+                columns = list(result.keys())
+                data_rows = []
+                for row in rows:
+                    row_dict = {}
+                    for i, value in enumerate(row):
+                        # Handle different data types for JSON serialization
+                        if isinstance(value, datetime):
+                            row_dict[columns[i]] = value.isoformat()
+                        else:
+                            row_dict[columns[i]] = value
+                    data_rows.append(row_dict)
+                
+                return success_response({
+                    'query': query,
+                    'rows': data_rows,
+                    'row_count': len(data_rows),
+                    'columns': columns
+                })
+            else:
+                return success_response({
+                    'query': query,
+                    'rows': [],
+                    'row_count': 0,
+                    'columns': []
+                })
+        else:
+            # For other queries (INSERT, UPDATE, DELETE, etc.), commit and return affected rows
+            db.session.commit()
+            return success_response({
+                'query': query,
+                'message': 'Query executed successfully',
+                'affected_rows': result.rowcount if hasattr(result, 'rowcount') else 0
+            })
+            
+    except Exception as e:
+        # Rollback any changes if there was an error
+        db.session.rollback()
+        return error_response(f'SQL Error: {str(e)}', 400)
+
 # Category API Routes
 @categories_bp.route('/categories', methods=['GET'])
 @login_required
