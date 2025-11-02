@@ -382,6 +382,8 @@
 					<p>No recurring templates yet. Create one above to schedule recurring todos!</p>
 				</div>
 			</section>
+		</div>
+
 		<!-- Work Cheat Sheet System -->
 		{#if currentView === 'cheatsheet'}
 			<div id="cheatsheet-system" class="system-view active">
