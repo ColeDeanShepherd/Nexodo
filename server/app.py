@@ -510,7 +510,7 @@ def get_study_stats() -> Tuple[Response, int]:
 @client_bp.route('/')
 def serve_client() -> Response:
     """Serve the main web client"""
-    return send_from_directory(config.client_dir, 'index.html')
+    return send_from_directory(config.client_dir + '/dist', 'index.html')
 
 @client_bp.route('/flashcards')
 def serve_flashcards() -> Response:
