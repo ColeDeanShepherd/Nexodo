@@ -19,6 +19,9 @@
 
 	// Global functions that will be available after scripts load
 	let globalFunctions: any = {};
+	
+	// Variable to store the DB value for display
+	let dbValue: string = '';
 
 	onMount(() => {
 		// Set a flag to prevent the original DOMContentLoaded handler from running
@@ -77,14 +80,28 @@
 		try {
 			const response = await (window as any).apiCall('/key-value/db');
 			console.log('DB key-value:', response);
-			console.log('DB value:', response.data?.value);
+			
+			const rawValue = response.data?.value || '';
+			console.log('DB value:', rawValue);
+			
+			// Try to parse and pretty-print the JSON
+			try {
+				const parsed = JSON.parse(rawValue);
+				dbValue = JSON.stringify(parsed, null, 2);
+			} catch (jsonError) {
+				// If it's not valid JSON, just display the raw value
+				dbValue = rawValue;
+				console.log('DB value is not valid JSON, displaying as-is');
+			}
 		} catch (error) {
 			// apiCall already handles logging errors, but we can add specific handling
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			if (errorMessage.includes('404')) {
 				console.log('DB key not found in key-value store');
+				dbValue = 'DB key not found in key-value store';
 			} else {
 				console.log('Failed to fetch DB key-value:', errorMessage);
+				dbValue = `Error fetching DB value: ${errorMessage}`;
 			}
 		}
 	}
@@ -119,5 +136,56 @@
 		</div>
 	</header>
 
+	<!-- DB Value Display -->
+	{#if dbValue}
+		<div class="db-value-section">
+			<h3>DB Value (Pretty-printed JSON):</h3>
+			<textarea 
+				readonly 
+				bind:value={dbValue} 
+				class="db-value-textarea"
+				rows="10"
+				placeholder="Loading DB value..."
+			></textarea>
+		</div>
+	{/if}
+
 	<MainView {globalFunctions} />
 </div>
+
+<style>
+	.db-value-section {
+		margin: 1rem;
+		padding: 1rem;
+		border: 1px solid var(--border-color, #ddd);
+		border-radius: 8px;
+		background-color: var(--background-secondary, #f9f9f9);
+	}
+
+	.db-value-section h3 {
+		margin: 0 0 0.5rem 0;
+		color: var(--text-color, #333);
+		font-size: 1rem;
+	}
+
+	.db-value-textarea {
+		width: 100%;
+		min-height: 200px;
+		padding: 0.75rem;
+		border: 1px solid var(--border-color, #ccc);
+		border-radius: 4px;
+		font-family: 'Courier New', monospace;
+		font-size: 0.875rem;
+		line-height: 1.4;
+		background-color: var(--input-background, #fff);
+		color: var(--text-color, #333);
+		resize: vertical;
+		box-sizing: border-box;
+	}
+
+	.db-value-textarea:focus {
+		outline: none;
+		border-color: var(--primary-color, #007bff);
+		box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+	}
+</style>
