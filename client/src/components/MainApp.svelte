@@ -3,6 +3,20 @@
 	import MainView from './MainView.svelte';
 	import '../../styles.css';
 
+	interface IDataSource {
+
+	}
+
+	interface IView {
+
+	}
+
+	// data query = SELECT * FROM todos
+	// schema = todo[]
+	// view = table view (of todo)
+	// TODO post process data = sort by urgency
+	// todo = { id: number; title: string; completed: boolean; dueDate: string; priority: string; category: string; }
+
 	// Global functions that will be available after scripts load
 	let globalFunctions: any = {};
 

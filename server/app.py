@@ -9,10 +9,10 @@ from functools import wraps
 from .config import Config
 from .utils import success_response, error_response, no_content_response
 from .models import (
-    Base, Todo, Category, Deck, Flashcard, StudySession, RecurringTodoTemplate,
+    Base, Todo, Category, Deck, Flashcard, StudySession, RecurringTodoTemplate, KeyValue,
     validate_todo_data, validate_category_data, validate_deck_data,
     validate_flashcard_data, validate_study_data, validate_recurring_todo_template_data, 
-    initialize_database, generate_due_recurring_todos
+    validate_key_value_data, initialize_database, generate_due_recurring_todos
 )
 
 # Initialize configuration
@@ -570,6 +570,136 @@ def get_study_stats() -> Tuple[Response, int]:
         'recent_sessions': recent_sessions,
         'deck_stats': deck_stats
     })
+
+# Key-Value Store API
+@app.route('/api/key-value', methods=['GET'])
+@login_required
+def get_key_values() -> Response:
+    """Get all key-value pairs"""
+    key_values = KeyValue.query.order_by(KeyValue.key).all()
+    return success_response([kv.to_dict() for kv in key_values])
+
+@app.route('/api/key-value/<string:key>', methods=['GET'])
+@login_required
+def get_key_value(key: str) -> Union[Response, Tuple[Response, int]]:
+    """Get a specific key-value pair by key"""
+    key_value = KeyValue.get_by_key(key)
+    if not key_value:
+        return error_response('Key not found', 404)
+    
+    return success_response(key_value.to_dict())
+
+@app.route('/api/key-value/<string:key>', methods=['PUT'])
+@login_required
+def set_key_value(key: str) -> Tuple[Response, int]:
+    """Set a key-value pair (upsert operation)"""
+    data = request.get_json()
+    
+    # Validate the data
+    validated_data, error = validate_key_value_data(data, for_update=True)
+    if error:
+        return error
+    
+    # Ensure the key matches the URL parameter
+    if 'key' in validated_data and validated_data['key'] != key:
+        return error_response('Key in body must match key in URL', 400)
+    
+    # Set the key from URL if not in body
+    validated_data['key'] = key
+    
+    try:
+        # Use the upsert method
+        key_value = KeyValue.set_value(key, validated_data.get('value', ''), db.session)
+        db.session.commit()
+        
+        return success_response(key_value.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to set key-value: {str(e)}', 500)
+
+@app.route('/api/key-value', methods=['POST'])
+@login_required
+def create_key_value() -> Tuple[Response, int]:
+    """Create a new key-value pair"""
+    data = request.get_json()
+    
+    # Validate the data
+    validated_data, error = validate_key_value_data(data)
+    if error:
+        return error
+    
+    # Check if key already exists
+    existing = KeyValue.get_by_key(validated_data['key'])
+    if existing:
+        return error_response('Key already exists. Use PUT to update.', 409)
+    
+    try:
+        key_value = KeyValue.create_from_data(
+            validated_data['key'],
+            validated_data.get('value', '')
+        )
+        db.session.add(key_value)
+        db.session.commit()
+        
+        return success_response(key_value.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to create key-value: {str(e)}', 500)
+
+@app.route('/api/key-value/<string:key>', methods=['DELETE'])
+@login_required
+def delete_key_value(key: str) -> Union[Tuple[str, int], Tuple[Response, int]]:
+    """Delete a key-value pair"""
+    key_value = KeyValue.get_by_key(key)
+    if not key_value:
+        return error_response('Key not found', 404)
+    
+    try:
+        db.session.delete(key_value)
+        db.session.commit()
+        return '', 204
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to delete key-value: {str(e)}', 500)
+
+@app.route('/api/key-value/bulk', methods=['POST'])
+@login_required
+def bulk_set_key_values() -> Tuple[Response, int]:
+    """Set multiple key-value pairs at once"""
+    data = request.get_json()
+    
+    if not isinstance(data, dict):
+        return error_response('Request body must be an object with key-value pairs', 400)
+    
+    if 'pairs' not in data or not isinstance(data['pairs'], list):
+        return error_response('Request body must contain a "pairs" array', 400)
+    
+    try:
+        updated_keys = []
+        
+        for pair in data['pairs']:
+            # Validate each pair
+            validated_data, error = validate_key_value_data(pair)
+            if error:
+                return error
+            
+            # Set the key-value pair
+            key_value = KeyValue.set_value(
+                validated_data['key'],
+                validated_data.get('value', ''),
+                db.session
+            )
+            updated_keys.append(key_value.to_dict())
+        
+        db.session.commit()
+        return success_response({
+            'updated_count': len(updated_keys),
+            'updated_keys': updated_keys
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to bulk update key-values: {str(e)}', 500)
 
 # Client Routes (Static File Serving)
 @client_bp.route('/')

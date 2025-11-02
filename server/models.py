@@ -672,3 +672,73 @@ def generate_due_recurring_todos(db_session) -> List[Todo]:
         db_session.commit()
     
     return generated_todos
+
+
+class KeyValue(Base):
+    """Model for storing arbitrary key-value pairs"""
+    __tablename__ = 'key_value_store'
+    
+    id = Column(Integer, primary_key=True)
+    key = Column(String(255), nullable=False, unique=True, index=True)
+    value = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert KeyValue to dictionary"""
+        return {
+            'id': self.id,
+            'key': self.key,
+            'value': self.value,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    @classmethod
+    def create_from_data(cls, key: str, value: str) -> 'KeyValue':
+        """Create a new KeyValue instance from data"""
+        return cls(key=key, value=value)
+    
+    @classmethod
+    def get_by_key(cls, key: str) -> Optional['KeyValue']:
+        """Get a KeyValue by key"""
+        return cls.query.filter_by(key=key).first()
+    
+    @classmethod
+    def set_value(cls, key: str, value: str, db_session) -> 'KeyValue':
+        """Set a key-value pair (upsert operation)"""
+        existing = cls.get_by_key(key)
+        if existing:
+            existing.value = value
+            existing.updated_at = datetime.utcnow()
+            return existing
+        else:
+            new_kv = cls.create_from_data(key, value)
+            db_session.add(new_kv)
+            return new_kv
+
+
+def validate_key_value_data(data: Optional[Dict[str, Any]], for_update: bool = False) -> Tuple[Optional[Dict[str, Any]], Optional[Tuple[Response, int]]]:
+    """Validate key-value data, return (validated_data, error) tuple"""
+    if not data:
+        return None, error_response('No data provided')
+    
+    if not for_update and 'key' not in data:
+        return None, error_response('Key is required')
+    
+    if 'key' in data and not isinstance(data['key'], str):
+        return None, error_response('Key must be a string')
+    
+    if 'key' in data and len(data['key'].strip()) == 0:
+        return None, error_response('Key cannot be empty')
+    
+    if 'value' in data and data['value'] is not None and not isinstance(data['value'], str):
+        return None, error_response('Value must be a string or null')
+    
+    validated_data = data.copy()
+    
+    # Trim whitespace from key
+    if 'key' in validated_data:
+        validated_data['key'] = validated_data['key'].strip()
+    
+    return validated_data, None
