@@ -193,8 +193,12 @@
 		if (navFlashcardsBtn) navFlashcardsBtn.classList.remove('active');
 	}
 
+	function handleNavFlashcards() {
+		window.location.href = '/flashcards';
+	}
+
 	// Export navigation functions so MainApp can call them
-	export { handleNavTodos, handleNavTemplates, handleNavCheatSheet };
+	export { handleNavTodos, handleNavTemplates, handleNavCheatSheet, handleNavFlashcards };
 	
 	// Event handlers for modal and form interactions
 	function handleAddTodo() {
@@ -225,6 +229,14 @@
 </script>
 
 <main>
+	<!-- Main Navigation -->
+	<nav class="main-nav">
+		<button id="nav-todos" class="nav-btn" class:active={currentView === 'todos'} on:click={handleNavTodos}>📝 Todos</button>
+		<button id="nav-templates" class="nav-btn" class:active={currentView === 'templates'} on:click={handleNavTemplates}>🔄 Templates</button>
+		<button id="nav-cheatsheet" class="nav-btn" class:active={currentView === 'cheatsheet'} on:click={handleNavCheatSheet}>📋 Cheat Sheet</button>
+		<button id="nav-flashcards" class="nav-btn" on:click={handleNavFlashcards}>🃏 Flashcards</button>
+	</nav>
+
 	<!-- Todo System -->
 	<div id="todo-system" class="system-view" class:active={currentView === 'todos'} class:hidden={currentView !== 'todos'}>
 		<!-- Add Todo Button -->

@@ -5,7 +5,6 @@
 
 	// Global functions that will be available after scripts load
 	let globalFunctions: any = {};
-	let mainViewComponent: MainView;
 
 	onMount(() => {
 		// Set a flag to prevent the original DOMContentLoaded handler from running
@@ -56,29 +55,6 @@
 		});
 	});
 
-	// Navigation handlers that delegate to MainView
-	function handleNavTodos() {
-		if (mainViewComponent && mainViewComponent.handleNavTodos) {
-			mainViewComponent.handleNavTodos();
-		}
-	}
-
-	function handleNavTemplates() {
-		if (mainViewComponent && mainViewComponent.handleNavTemplates) {
-			mainViewComponent.handleNavTemplates();
-		}
-	}
-
-	function handleNavCheatSheet() {
-		if (mainViewComponent && mainViewComponent.handleNavCheatSheet) {
-			mainViewComponent.handleNavCheatSheet();
-		}
-	}
-
-	function handleNavFlashcards() {
-		window.location.href = '/flashcards';
-	}
-
 	// Logout functionality (kept in MainApp)
 	function handleLogout() {
 		if (globalFunctions.logout) {
@@ -98,12 +74,6 @@
 	<header>
 		<div class="header-content">
 			<h1>📝 Nexodo</h1>
-			<nav class="main-nav">
-				<button id="nav-todos" class="nav-btn" on:click={handleNavTodos}>📝 Todos</button>
-				<button id="nav-templates" class="nav-btn" on:click={handleNavTemplates}>🔄 Templates</button>
-				<button id="nav-cheatsheet" class="nav-btn" on:click={handleNavCheatSheet}>📋 Cheat Sheet</button>
-				<button id="nav-flashcards" class="nav-btn" on:click={handleNavFlashcards}>🃏 Flashcards</button>
-			</nav>
 		</div>
 		<div class="header-actions">
 			<button id="theme-toggle" class="btn btn-secondary" title="Toggle dark/light mode" on:click={toggleTheme}>
@@ -115,5 +85,5 @@
 		</div>
 	</header>
 
-	<MainView {globalFunctions} bind:this={mainViewComponent} />
+	<MainView {globalFunctions} />
 </div>
