@@ -91,7 +91,7 @@
 			} catch (jsonError) {
 				// If it's not valid JSON, just display the raw value
 				dbValue = rawValue;
-				console.log('DB value is not valid JSON, displaying as-is');
+				console.log(`DB value is not valid JSON, displaying as-is. Error: ${jsonError}`);
 			}
 		} catch (error) {
 			// apiCall already handles logging errors, but we can add specific handling
