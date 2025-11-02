@@ -3,8 +3,8 @@
 	import '../../styles.css';
 
 	onMount(() => {
-		// Import and initialize all the existing JavaScript files
-		// We'll load them dynamically to ensure they run after the component is mounted
+		// Import and initialize all the existing JavaScript files sequentially
+		// We need to load them in order to ensure dependencies are available
 		const scripts = [
 			'/theme.js',
 			'/common.js', 
@@ -12,11 +12,20 @@
 			'/templates.js'
 		];
 
-		scripts.forEach(src => {
-			const script = document.createElement('script');
-			script.src = src;
-			script.defer = true;
-			document.head.appendChild(script);
+		async function loadScriptsSequentially() {
+			for (const src of scripts) {
+				await new Promise((resolve, reject) => {
+					const script = document.createElement('script');
+					script.src = src;
+					script.onload = resolve;
+					script.onerror = reject;
+					document.head.appendChild(script);
+				});
+			}
+		}
+
+		loadScriptsSequentially().catch(error => {
+			console.error('Failed to load scripts:', error);
 		});
 	});
 </script>
