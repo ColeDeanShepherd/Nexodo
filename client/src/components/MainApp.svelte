@@ -62,12 +62,32 @@
 				setupEventListeners: (window as any).setupEventListeners,
 				// Add other functions as needed
 			};
+
+			// Fetch and print the "db" key-value
+			await fetchDbValue();
 		}
 
 		loadScriptsSequentially().catch(error => {
 			console.error('Failed to load scripts:', error);
 		});
 	});
+
+	// Function to fetch the "db" key-value from the API
+	async function fetchDbValue() {
+		try {
+			const response = await (window as any).apiCall('/key-value/db');
+			console.log('DB key-value:', response);
+			console.log('DB value:', response.data?.value);
+		} catch (error) {
+			// apiCall already handles logging errors, but we can add specific handling
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			if (errorMessage.includes('404')) {
+				console.log('DB key not found in key-value store');
+			} else {
+				console.log('Failed to fetch DB key-value:', errorMessage);
+			}
+		}
+	}
 
 	// Logout functionality (kept in MainApp)
 	function handleLogout() {
