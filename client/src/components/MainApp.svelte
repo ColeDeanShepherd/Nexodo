@@ -2,6 +2,11 @@
 	import { onMount } from 'svelte';
 	import '../../styles.css';
 
+	let currentView = 'todos';
+
+	// Global functions that will be available after scripts load
+	let globalFunctions: any = {};
+
 	onMount(() => {
 		// Import and initialize all the existing JavaScript files sequentially
 		// We need to load them in order to ensure dependencies are available
@@ -22,12 +27,74 @@
 					document.head.appendChild(script);
 				});
 			}
+			
+			// After all scripts are loaded, capture the global functions
+			globalFunctions = {
+				switchToView: (window as any).switchToView,
+				openAddModal: (window as any).openAddModal,
+				openCategoriesModal: (window as any).openCategoriesModal,
+				logout: (window as any).logout,
+				// Add other functions as needed
+			};
 		}
 
 		loadScriptsSequentially().catch(error => {
 			console.error('Failed to load scripts:', error);
 		});
 	});
+
+	// Event handlers
+	function handleNavTodos() {
+		currentView = 'todos';
+		if (globalFunctions.switchToView) {
+			globalFunctions.switchToView('todos');
+		}
+	}
+
+	function handleNavTemplates() {
+		currentView = 'templates';
+		if (globalFunctions.switchToView) {
+			globalFunctions.switchToView('templates');
+		}
+	}
+
+	function handleNavFlashcards() {
+		window.location.href = '/flashcards';
+	}
+
+	function handleAddTodo() {
+		if (globalFunctions.openAddModal) {
+			globalFunctions.openAddModal();
+		}
+	}
+
+	function handleManageCategories() {
+		if (globalFunctions.openCategoriesModal) {
+			globalFunctions.openCategoriesModal();
+		}
+	}
+
+	function handleLogout() {
+		if (globalFunctions.logout) {
+			globalFunctions.logout();
+		}
+	}
+
+	function handleOpenAddTemplate() {
+		// This will be handled by the templates.js script
+		const openBtn = document.getElementById('open-add-template-modal');
+		if (openBtn) {
+			openBtn.click();
+		}
+	}
+
+	function handleGenerateDueTodos() {
+		// This will be handled by the templates.js script
+		const generateBtn = document.getElementById('generate-due-todos-btn');
+		if (generateBtn) {
+			generateBtn.click();
+		}
+	}
 </script>
 
 <div class="container">
@@ -35,16 +102,16 @@
 		<div class="header-content">
 			<h1>📝 Nexodo</h1>
 			<nav class="main-nav">
-				<button id="nav-todos" class="nav-btn active">📝 Todos</button>
-				<button id="nav-templates" class="nav-btn">🔄 Templates</button>
-				<button id="nav-flashcards" class="nav-btn" on:click={() => window.location.href='/flashcards'}>🃏 Flashcards</button>
+				<button id="nav-todos" class="nav-btn" class:active={currentView === 'todos'} on:click={handleNavTodos}>📝 Todos</button>
+				<button id="nav-templates" class="nav-btn" class:active={currentView === 'templates'} on:click={handleNavTemplates}>🔄 Templates</button>
+				<button id="nav-flashcards" class="nav-btn" on:click={handleNavFlashcards}>🃏 Flashcards</button>
 			</nav>
 		</div>
 		<div class="header-actions">
 			<button id="theme-toggle" class="btn btn-secondary" title="Toggle dark/light mode">
 				🌙
 			</button>
-			<button id="logout-btn" class="btn btn-secondary">
+			<button id="logout-btn" class="btn btn-secondary" on:click={handleLogout}>
 				🚪 Logout
 			</button>
 		</div>
@@ -52,10 +119,10 @@
 
 	<main>
 		<!-- Todo System -->
-		<div id="todo-system" class="system-view active">
+		<div id="todo-system" class="system-view" class:active={currentView === 'todos'} class:hidden={currentView !== 'todos'}>
 			<!-- Add Todo Button -->
 			<section class="add-todo-section">
-				<button id="open-add-modal" class="btn btn-primary btn-large">
+				<button id="open-add-modal" class="btn btn-primary btn-large" on:click={handleAddTodo}>
 					➕ Add New Todo
 				</button>
 			</section>
@@ -64,7 +131,7 @@
 			<section class="categories-section">
 				<div class="categories-header">
 					<h3>📁 Categories</h3>
-					<button id="manage-categories-btn" class="btn btn-secondary">
+					<button id="manage-categories-btn" class="btn btn-secondary" on:click={handleManageCategories}>
 						⚙️ Manage
 					</button>
 				</div>
@@ -106,13 +173,13 @@
 		</div>
 
 		<!-- Recurring Templates System -->
-		<div id="templates-system" class="system-view hidden">
+		<div id="templates-system" class="system-view" class:hidden={currentView !== 'templates'} class:active={currentView === 'templates'}>
 			<!-- Add Template Button -->
 			<section class="add-template-section">
-				<button id="open-add-template-modal" class="btn btn-primary btn-large">
+				<button id="open-add-template-modal" class="btn btn-primary btn-large" on:click={handleOpenAddTemplate}>
 					➕ Create New Template
 				</button>
-				<button id="generate-due-todos-btn" class="btn btn-secondary btn-large">
+				<button id="generate-due-todos-btn" class="btn btn-secondary btn-large" on:click={handleGenerateDueTodos}>
 					🔄 Generate Due Todos
 				</button>
 			</section>
