@@ -3,11 +3,80 @@
 	import MainView from './MainView.svelte';
 	import '../../styles.css';
 
-	let todosTableView = (db: any) => {
-		const container = document.createElement('div');
-		container.innerHTML = `<h2>Todos Table View</h2><pre>${JSON.stringify(db.todos, null, 2)}</pre>`;
-		return container;
-	};
+	function _elem<K extends keyof HTMLElementTagNameMap>(
+		tagName: K,
+		childrenOrAttrs?: (Node | string)[] | Record<string, any>,
+		children?: (Node | string)[],
+		options?: ElementCreationOptions
+	): HTMLElementTagNameMap[K] {
+		let actualChildren: (Node | string)[];
+		let attrs: Record<string, any>;
+
+		if (childrenOrAttrs === undefined) {
+			if (children !== undefined) {
+				throw new Error('Children provided without attributes.');
+			}
+
+			actualChildren = [];
+			attrs = {};
+		} else if (Array.isArray(childrenOrAttrs)) {
+			if (children !== undefined) {
+				throw new Error('Cannot provide both children and childrenOrAttrs as array.');
+			}
+
+			actualChildren = childrenOrAttrs;
+			attrs = {};
+		} else if (typeof childrenOrAttrs === 'object') {
+			actualChildren = children || [];
+			attrs = childrenOrAttrs;
+		} else {
+			throw new Error('Invalid argument for childrenOrAttrs.');
+		}
+
+		const element = document.createElement(tagName, options);
+		
+		// Set attributes
+		Object.keys(attrs).forEach((key) => {
+			element.setAttribute(key, attrs[key]);
+		});
+		
+		// Append children (handle both Nodes and strings)
+		actualChildren.forEach((child) => {
+			if (typeof child === 'string') {
+				element.appendChild(document.createTextNode(child));
+			} else {
+				element.appendChild(child);
+			}
+		});
+
+		return element;
+	}
+
+	const _div = (
+		childrenOrAttrs?: (Node | string)[] | Record<string, any>,
+		children?: (Node | string)[],
+		options?: ElementCreationOptions
+	) => _elem('div', childrenOrAttrs, children, options);
+
+	const _span = (
+		childrenOrAttrs?: (Node | string)[] | Record<string, any>,
+		children?: (Node | string)[],
+		options?: ElementCreationOptions
+	) => _elem('span', childrenOrAttrs, children, options);
+
+	const _pre = (
+		childrenOrAttrs?: (Node | string)[] | Record<string, any>,
+		children?: (Node | string)[],
+		options?: ElementCreationOptions
+	) => _elem('pre', childrenOrAttrs, children, options);
+
+	const todosTableView = (db: any) =>
+		_div([
+			_pre([
+				"HI!",
+				JSON.stringify(db.todos, null, 2)
+			])
+		]);
 
 	// data query = SELECT * FROM todos
 	// schema = todo[]
@@ -149,11 +218,8 @@
 
 	<!-- DB Value Display -->
 	{#if dbValue}
-		<div class="db-value-section">
-			<h3>Todos Table View:</h3>
-			<div bind:this={dbContainer} class="todos-table-container">
-				<!-- Table will be rendered here by todosTableView -->
-			</div>
+		<div bind:this={dbContainer} class="todos-table-container">
+			<!-- Table will be rendered here by todosTableView -->
 		</div>
 	{/if}
 
@@ -161,20 +227,6 @@
 </div>
 
 <style>
-	.db-value-section {
-		margin: 1rem;
-		padding: 1rem;
-		border: 1px solid var(--border-color, #ddd);
-		border-radius: 8px;
-		background-color: var(--background-secondary, #f9f9f9);
-	}
-
-	.db-value-section h3 {
-		margin: 0 0 0.5rem 0;
-		color: var(--text-color, #333);
-		font-size: 1rem;
-	}
-
 	.todos-table-container {
 		width: 100%;
 		padding: 0.75rem;
