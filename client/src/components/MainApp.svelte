@@ -70,13 +70,92 @@
 		options?: ElementCreationOptions
 	) => _elem('pre', childrenOrAttrs, children, options);
 
-	const todosTableView = (db: any) =>
-		_div([
-			_pre([
-				"HI!",
-				JSON.stringify(db.todos, null, 2)
-			])
-		]);
+	const _table = (
+		childrenOrAttrs?: (Node | string)[] | Record<string, any>,
+		children?: (Node | string)[],
+		options?: ElementCreationOptions
+	) => _elem('table', childrenOrAttrs, children, options);
+
+	const _thead = (
+		childrenOrAttrs?: (Node | string)[] | Record<string, any>,
+		children?: (Node | string)[],
+		options?: ElementCreationOptions
+	) => _elem('thead', childrenOrAttrs, children, options);
+
+	const _tbody = (
+		childrenOrAttrs?: (Node | string)[] | Record<string, any>,
+		children?: (Node | string)[],
+		options?: ElementCreationOptions
+	) => _elem('tbody', childrenOrAttrs, children, options);
+
+	const _tr = (
+		childrenOrAttrs?: (Node | string)[] | Record<string, any>,
+		children?: (Node | string)[],
+		options?: ElementCreationOptions
+	) => _elem('tr', childrenOrAttrs, children, options);
+
+	const _th = (
+		childrenOrAttrs?: (Node | string)[] | Record<string, any>,
+		children?: (Node | string)[],
+		options?: ElementCreationOptions
+	) => _elem('th', childrenOrAttrs, children, options);
+
+	const _td = (
+		childrenOrAttrs?: (Node | string)[] | Record<string, any>,
+		children?: (Node | string)[],
+		options?: ElementCreationOptions
+	) => _elem('td', childrenOrAttrs, children, options);
+
+	const todosTableView = (db: any) => {
+		// Handle case where db.todos doesn't exist or is empty
+		if (!db.todos || !Array.isArray(db.todos) || db.todos.length === 0) {
+			return _div([
+				_div({ class: "no-todos" }, ["No todos found"])
+			]);
+		}
+
+		// Get column names from the first todo object
+		const firstTodo = db.todos[0];
+		const columnNames = Object.keys(firstTodo);
+
+		// Create table header based on actual properties
+		const headerRow = _tr(
+			columnNames.map(columnName => _th([columnName]))
+		);
+
+		// Create table rows for each todo
+		const todoRows = db.todos.map((todo: any) => {
+			return _tr(
+				columnNames.map(columnName => {
+					const value = todo[columnName];
+					let displayValue = '';
+					
+					// Format different types of values
+					if (value === null || value === undefined) {
+						displayValue = '';
+					} else if (typeof value === 'boolean') {
+						displayValue = value ? "✓" : "○";
+					} else if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+						// Looks like an ISO date string
+						displayValue = new Date(value).toLocaleDateString();
+					} else {
+						displayValue = String(value);
+					}
+					
+					return _td([displayValue]);
+				})
+			);
+		});
+
+		// Assemble the complete table
+		return _table(
+			{ class: "todos-table" },
+			[
+				_thead([headerRow]),
+				_tbody(todoRows)
+			]
+		);
+	};
 
 	// data query = SELECT * FROM todos
 	// schema = todo[]
@@ -236,5 +315,40 @@
 		color: var(--text-color, #333);
 		box-sizing: border-box;
 		overflow: auto;
+	}
+
+	:global(.todos-table) {
+		width: 100%;
+		border-collapse: collapse;
+		margin: 0;
+	}
+
+	:global(.todos-table th),
+	:global(.todos-table td) {
+		padding: 0.5rem;
+		text-align: left;
+		border-bottom: 1px solid var(--border-color, #eee);
+	}
+
+	:global(.todos-table th) {
+		background-color: var(--background-secondary, #f5f5f5);
+		font-weight: 600;
+		color: var(--text-color, #333);
+		border-bottom: 2px solid var(--border-color, #ccc);
+	}
+
+	:global(.todos-table tr:hover) {
+		background-color: var(--hover-background, #f9f9f9);
+	}
+
+	:global(.todos-table tr:nth-child(even)) {
+		background-color: var(--stripe-background, #fafafa);
+	}
+
+	:global(.no-todos) {
+		text-align: center;
+		padding: 2rem;
+		color: var(--text-muted, #666);
+		font-style: italic;
 	}
 </style>
