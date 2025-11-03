@@ -81,7 +81,7 @@
 			const response = await (window as any).apiCall('/key-value/db');
 			console.log('DB key-value:', response);
 			
-			const rawValue = response.data?.value || '';
+			const rawValue = response?.value || '';
 			console.log('DB value:', rawValue);
 			
 			// Try to parse and pretty-print the JSON
