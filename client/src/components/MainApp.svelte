@@ -3,13 +3,11 @@
 	import MainView from './MainView.svelte';
 	import '../../styles.css';
 
-	interface IDataSource {
-
-	}
-
-	interface IView {
-
-	}
+	let todosTableView = (db: any) => {
+		const container = document.createElement('div');
+		container.innerHTML = `<h2>Todos Table View</h2><pre>${JSON.stringify(db.todos, null, 2)}</pre>`;
+		return container;
+	};
 
 	// data query = SELECT * FROM todos
 	// schema = todo[]
@@ -22,6 +20,26 @@
 	
 	// Variable to store the DB value for display
 	let dbValue: string = '';
+	let dbContainer: HTMLElement;
+
+	// Function to render the todos table view
+	function renderTodosTable() {
+		if (dbContainer && dbValue) {
+			try {
+				const parsed = JSON.parse(dbValue);
+				const tableElement = todosTableView(parsed);
+				dbContainer.innerHTML = '';
+				dbContainer.appendChild(tableElement);
+			} catch (error) {
+				dbContainer.innerHTML = `<p>Error parsing DB value: ${error}</p>`;
+			}
+		}
+	}
+
+	// Reactive statement to update the table when dbValue changes
+	$: if (dbValue && dbContainer) {
+		renderTodosTable();
+	}
 
 	onMount(() => {
 		// Set a flag to prevent the original DOMContentLoaded handler from running
@@ -84,24 +102,17 @@
 			const rawValue = response?.value || '';
 			console.log('DB value:', rawValue);
 			
-			// Try to parse and pretty-print the JSON
-			try {
-				const parsed = JSON.parse(rawValue);
-				dbValue = JSON.stringify(parsed, null, 2);
-			} catch (jsonError) {
-				// If it's not valid JSON, just display the raw value
-				dbValue = rawValue;
-				console.log(`DB value is not valid JSON, displaying as-is. Error: ${jsonError}`);
-			}
+			// Store the raw value for processing
+			dbValue = rawValue;
 		} catch (error) {
 			// apiCall already handles logging errors, but we can add specific handling
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			if (errorMessage.includes('404')) {
 				console.log('DB key not found in key-value store');
-				dbValue = 'DB key not found in key-value store';
+				dbValue = '{"error": "DB key not found in key-value store"}';
 			} else {
 				console.log('Failed to fetch DB key-value:', errorMessage);
-				dbValue = `Error fetching DB value: ${errorMessage}`;
+				dbValue = `{"error": "Error fetching DB value: ${errorMessage}"}`;
 			}
 		}
 	}
@@ -139,14 +150,10 @@
 	<!-- DB Value Display -->
 	{#if dbValue}
 		<div class="db-value-section">
-			<h3>DB Value (Pretty-printed JSON):</h3>
-			<textarea 
-				readonly 
-				bind:value={dbValue} 
-				class="db-value-textarea"
-				rows="10"
-				placeholder="Loading DB value..."
-			></textarea>
+			<h3>Todos Table View:</h3>
+			<div bind:this={dbContainer} class="todos-table-container">
+				<!-- Table will be rendered here by todosTableView -->
+			</div>
 		</div>
 	{/if}
 
@@ -168,24 +175,14 @@
 		font-size: 1rem;
 	}
 
-	.db-value-textarea {
+	.todos-table-container {
 		width: 100%;
-		min-height: 200px;
 		padding: 0.75rem;
 		border: 1px solid var(--border-color, #ccc);
 		border-radius: 4px;
-		font-family: 'Courier New', monospace;
-		font-size: 0.875rem;
-		line-height: 1.4;
 		background-color: var(--input-background, #fff);
 		color: var(--text-color, #333);
-		resize: vertical;
 		box-sizing: border-box;
-	}
-
-	.db-value-textarea:focus {
-		outline: none;
-		border-color: var(--primary-color, #007bff);
-		box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+		overflow: auto;
 	}
 </style>
