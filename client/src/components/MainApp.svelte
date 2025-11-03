@@ -351,4 +351,30 @@
 		color: var(--text-muted, #666);
 		font-style: italic;
 	}
+
+	/* Dark mode improvements for tables */
+	:global([data-theme="dark"] .todos-table th) {
+		background-color: var(--background-secondary, #2d3748);
+		color: var(--text-color, #e2e8f0);
+		border-bottom-color: var(--border-color, #4a5568);
+	}
+
+	:global([data-theme="dark"] .todos-table th),
+	:global([data-theme="dark"] .todos-table td) {
+		border-bottom-color: var(--border-color, #4a5568);
+	}
+
+	:global([data-theme="dark"] .todos-table tr:hover) {
+		background-color: var(--hover-background, #2d3748);
+	}
+
+	:global([data-theme="dark"] .todos-table tr:nth-child(even)) {
+		background-color: var(--stripe-background, #1a202c);
+	}
+
+	:global([data-theme="dark"] .todos-table-container) {
+		background-color: var(--input-background, #1a202c);
+		border-color: var(--border-color, #4a5568);
+		color: var(--text-color, #e2e8f0);
+	}
 </style>
