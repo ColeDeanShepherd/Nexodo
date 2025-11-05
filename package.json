@@ -2,8 +2,8 @@
   "name": "nexodo",
   "scripts": {
     "dev": "bun run build:client && concurrently \"bun run watch:client\" \"bun run watch:server\"",
-    "build:client": "bun build src/client/main.ts --outdir public/js --target browser",
-    "watch:client": "bun build src/client/main.ts --outdir public/js --target browser --watch",
+    "build:client": "bun build src/client/main.ts --outdir public/js --target browser --format esm",
+    "watch:client": "bun build src/client/main.ts --outdir public/js --target browser --format esm --watch",
     "watch:server": "bun run --hot src/index.ts",
     "build": "bun run build:client",
     "start": "bun run src/index.ts"

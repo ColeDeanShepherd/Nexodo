@@ -23,7 +23,7 @@ app.get(
         </head>
         <body>
           <div id="app"></div>
-          <script src="/public/js/main.js"></script>
+          <script type="module" src="/public/js/main.js"></script>
         </body>
       </html>
     `)
