@@ -1,6 +1,6 @@
 import { _elem, _h1 } from './ui-lib'
 
-function run() {
+async function run() {
   const appElem = document.getElementById('app')
   if (!appElem) {
     throw new Error('App root element not found')

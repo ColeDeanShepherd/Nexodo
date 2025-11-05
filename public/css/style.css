@@ -1,17 +1,80 @@
 /* Nexodo Client Styles */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.6;
-  margin: 0;
-  padding: 2rem;
-  background-color: #f5f5f5;
-  color: #333;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  display: flex;
+  flex-direction: column;
+}
+
+#app {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  background-color: #252526;
+}
+
+.repl-container {
+  height: 200px;
+  background-color: #1e1e1e;
+  border-top: 1px solid #3e3e42;
+  display: flex;
+  flex-direction: column;
+}
+
+.repl-output {
+  flex: 1;
+  padding: 0.5rem;
+  overflow-y: auto;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9rem;
+  background-color: #0c0c0c;
+  color: #cccccc;
+}
+
+.repl-input-container {
+  display: flex;
+  padding: 0.5rem;
+  background-color: #2d2d30;
+  border-top: 1px solid #3e3e42;
+}
+
+.repl-prompt {
+  color: #569cd6;
+  margin-right: 0.5rem;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.repl-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #d4d4d4;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9rem;
+  outline: none;
 }
 
 h1 {
-  color: #2c3e50;
-  border-bottom: 2px solid #3498db;
+  color: #ffffff;
+  border-bottom: 2px solid #007acc;
   padding-bottom: 0.5rem;
+  margin-top: 0;
 }
 
 .status {
@@ -21,25 +84,25 @@ h1 {
 }
 
 .status.success {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background-color: #0e5132;
+  color: #4dffaa;
+  border: 1px solid #14a085;
 }
 
 .status.error {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background-color: #5a1a1a;
+  color: #ff6b6b;
+  border: 1px solid #a94442;
 }
 
 .status.info {
-  background-color: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
+  background-color: #1a4a5a;
+  color: #5bc0de;
+  border: 1px solid #46b8da;
 }
 
 button {
-  background-color: #3498db;
+  background-color: #007acc;
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -51,9 +114,26 @@ button {
 }
 
 button:hover {
-  background-color: #2980b9;
+  background-color: #005a9e;
 }
 
 button:active {
-  background-color: #21618c;
+  background-color: #004578;
+}
+
+/* REPL specific styles */
+.repl-output-line {
+  margin: 0.2rem 0;
+}
+
+.repl-output-line.input {
+  color: #569cd6;
+}
+
+.repl-output-line.output {
+  color: #ce9178;
+}
+
+.repl-output-line.error {
+  color: #f48771;
 }
