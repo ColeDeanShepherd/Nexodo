@@ -22,11 +22,7 @@ app.get(
           <link rel="stylesheet" href="/public/css/style.css" />
         </head>
         <body>
-          <h1>Hello, Nexodo!</h1>
-          ${raw('<p>This app includes both server-side and client-side TypeScript.</p>')}
-          <div id="app">
-            <p>Client-side TypeScript is loading...</p>
-          </div>
+          <div id="app"></div>
           <script src="/public/js/main.js"></script>
         </body>
       </html>
