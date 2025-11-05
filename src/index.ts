@@ -1,7 +1,11 @@
 import { Hono } from 'hono'
 import { html, raw } from 'hono/html'
+import { serveStatic } from 'hono/bun'
 
 const app = new Hono()
+
+// Serve static files from public directory
+app.use('/public/*', serveStatic({ root: './' }))
 
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
@@ -15,10 +19,15 @@ app.get(
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>Nexodo</title>
+          <link rel="stylesheet" href="/public/css/style.css" />
         </head>
         <body>
-          <h1>Hello, Hono!</h1>
-          ${raw('<p>This is rendered using Hono HTML helper.</p>')}
+          <h1>Hello, Nexodo!</h1>
+          ${raw('<p>This app includes both server-side and client-side TypeScript.</p>')}
+          <div id="app">
+            <p>Client-side TypeScript is loading...</p>
+          </div>
+          <script src="/public/js/main.js"></script>
         </body>
       </html>
     `)

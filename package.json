@@ -1,13 +1,16 @@
 {
   "name": "nexodo",
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
+    "dev": "bun run build:client && concurrently \"bun build src/client/main.ts --outdir public/js --target browser --watch\" \"bun run --hot src/index.ts\"",
+    "build:client": "bun build src/client/main.ts --outdir public/js --target browser",
+    "build": "bun run build:client",
     "start": "bun run src/index.ts"
   },
   "dependencies": {
     "hono": "^4.10.4"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "concurrently": "^9.2.1"
   }
 }
