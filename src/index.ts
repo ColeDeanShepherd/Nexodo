@@ -14,7 +14,7 @@ app.get(
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>Hono HTML Example</title>
+          <title>Nexodo</title>
         </head>
         <body>
           <h1>Hello, Hono!</h1>
