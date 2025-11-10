@@ -1,3 +1,4 @@
+import { Lexer } from './lexer'
 import { _elem, _h1, _div, _input } from './ui-lib'
 
 class REPL {
@@ -55,7 +56,10 @@ class REPL {
     this.addOutput(`> ${input}`, 'input')
     
     try {
-      const result = eval(input)
+      const lexer = new Lexer();
+      const tokens = lexer.tokenize(input);
+      const result = JSON.stringify(tokens, null, 2);
+      //const result = eval(input)
       this.addOutput(String(result), 'output')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
