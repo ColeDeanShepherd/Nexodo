@@ -1,0 +1,346 @@
+import { Token } from './lexer';
+import { ParseNode, ParseNodeType } from './parser';
+
+// Abstract Syntax Tree Node Types
+export abstract class ASTNode {
+  abstract readonly nodeType: string;
+}
+
+// Expressions
+export abstract class Expression extends ASTNode {}
+
+// Literals
+export class NumberLiteral extends Expression {
+  readonly nodeType = 'NumberLiteral';
+  
+  constructor(public value: number, public token: Token) {
+    super();
+  }
+}
+
+export class StringLiteral extends Expression {
+  readonly nodeType = 'StringLiteral';
+  
+  constructor(public value: string, public token: Token) {
+    super();
+  }
+}
+
+export class BooleanLiteral extends Expression {
+  readonly nodeType = 'BooleanLiteral';
+  
+  constructor(public value: boolean, public token: Token) {
+    super();
+  }
+}
+
+export class NullLiteral extends Expression {
+  readonly nodeType = 'NullLiteral';
+  
+  constructor(public token: Token) {
+    super();
+  }
+}
+
+// Identifiers
+export class Identifier extends Expression {
+  readonly nodeType = 'Identifier';
+  
+  constructor(public name: string, public token: Token) {
+    super();
+  }
+}
+
+// Complex values
+export class ObjectLiteral extends Expression {
+  readonly nodeType = 'ObjectLiteral';
+  
+  constructor(public properties: ObjectProperty[]) {
+    super();
+  }
+}
+
+export class ObjectProperty extends ASTNode {
+  readonly nodeType = 'ObjectProperty';
+  
+  constructor(
+    public key: string | Expression,
+    public value: Expression
+  ) {
+    super();
+  }
+}
+
+export class ArrayLiteral extends Expression {
+  readonly nodeType = 'ArrayLiteral';
+  
+  constructor(public elements: Expression[]) {
+    super();
+  }
+}
+
+// Operations
+export class FunctionCall extends Expression {
+  readonly nodeType = 'FunctionCall';
+  
+  constructor(
+    public callee: Expression,
+    public args: Expression[]
+  ) {
+    super();
+  }
+}
+
+export class MemberAccess extends Expression {
+  readonly nodeType = 'MemberAccess';
+  
+  constructor(
+    public object: Expression,
+    public property: Identifier
+  ) {
+    super();
+  }
+}
+
+// Assignments
+export class Assignment extends ASTNode {
+  readonly nodeType = 'Assignment';
+  
+  constructor(
+    public identifier: Identifier,
+    public value: Expression
+  ) {
+    super();
+  }
+}
+
+// Program (top-level)
+export class Program extends ASTNode {
+  readonly nodeType = 'Program';
+  
+  constructor(public statements: (Assignment | Expression)[]) {
+    super();
+  }
+}
+
+// AST Builder - converts concrete parse tree to abstract syntax tree
+export class ASTBuilder {
+  build(parseNode: ParseNode): ASTNode {
+    switch (parseNode.type) {
+      case ParseNodeType.Program:
+        return this.buildProgram(parseNode);
+      case ParseNodeType.Assignment:
+        return this.buildAssignment(parseNode);
+      case ParseNodeType.Expression:
+        return this.buildExpression(parseNode);
+      case ParseNodeType.Identifier:
+        return this.buildIdentifier(parseNode);
+      case ParseNodeType.Literal:
+        return this.buildLiteral(parseNode);
+      case ParseNodeType.FunctionCall:
+        return this.buildFunctionCall(parseNode);
+      case ParseNodeType.Object:
+        return this.buildObjectLiteral(parseNode);
+      case ParseNodeType.Array:
+        return this.buildArrayLiteral(parseNode);
+      case ParseNodeType.Property:
+        return this.buildObjectProperty(parseNode);
+      default:
+        throw new Error(`Unsupported parse node type: ${parseNode.type}`);
+    }
+  }
+
+  private buildProgram(node: ParseNode): Program {
+    const statements: (Assignment | Expression)[] = [];
+    
+    for (const child of node.children) {
+      if (child.type === ParseNodeType.Token) {
+        continue; // Skip token nodes
+      }
+      
+      const statement = this.build(child);
+      if (statement instanceof Assignment || statement instanceof Expression) {
+        statements.push(statement);
+      }
+    }
+    
+    return new Program(statements);
+  }
+
+  private buildAssignment(node: ParseNode): Assignment {
+    // Assignment node structure: [Identifier, =, Expression]
+    const children = node.children.filter(child => child.type !== ParseNodeType.Token || child.token?.type !== 'ASSIGN' as any);
+    
+    if (children.length < 2) {
+      throw new Error('Invalid assignment structure');
+    }
+    
+    const identifier = this.build(children[0]);
+    const value = this.build(children[1]);
+    
+    if (!(identifier instanceof Identifier)) {
+      throw new Error('Assignment target must be an identifier');
+    }
+    
+    if (!(value instanceof Expression)) {
+      throw new Error('Assignment value must be an expression');
+    }
+    
+    return new Assignment(identifier, value);
+  }
+
+  private buildExpression(node: ParseNode): Expression {
+    // Expression nodes typically wrap other nodes
+    if (node.children.length === 1) {
+      const child = this.build(node.children[0]);
+      if (child instanceof Expression) {
+        return child;
+      }
+    }
+    
+    throw new Error('Invalid expression structure');
+  }
+
+  private buildIdentifier(node: ParseNode): Identifier {
+    if (!node.token) {
+      throw new Error('Identifier node missing token');
+    }
+    
+    return new Identifier(node.token.value, node.token);
+  }
+
+  private buildLiteral(node: ParseNode): Expression {
+    if (!node.token) {
+      throw new Error('Literal node missing token');
+    }
+    
+    const token = node.token;
+    const value = token.value;
+    
+    // Determine literal type based on token type or value
+    if (token.type === 'NUMBER' as any) {
+      return new NumberLiteral(parseFloat(value), token);
+    }
+    
+    if (token.type === 'STRING' as any) {
+      // Remove quotes from string value
+      const stringValue = value.startsWith('"') && value.endsWith('"') 
+        ? value.slice(1, -1)
+        : value.startsWith("'") && value.endsWith("'")
+        ? value.slice(1, -1)
+        : value;
+      return new StringLiteral(stringValue, token);
+    }
+    
+    if (token.type === 'BOOLEAN' as any || value === 'true' || value === 'false') {
+      return new BooleanLiteral(value === 'true', token);
+    }
+    
+    if (token.type === 'NULL' as any || value === 'null') {
+      return new NullLiteral(token);
+    }
+    
+    throw new Error(`Unknown literal type: ${token.type} with value: ${value}`);
+  }
+
+  private buildFunctionCall(node: ParseNode): FunctionCall {
+    // FunctionCall structure: [Expression (callee), Array (args)]
+    if (node.children.length < 1) {
+      throw new Error('Function call missing callee');
+    }
+    
+    const callee = this.build(node.children[0]);
+    if (!(callee instanceof Expression)) {
+      throw new Error('Function callee must be an expression');
+    }
+    
+    const args: Expression[] = [];
+    if (node.children.length > 1 && node.children[1].type === ParseNodeType.Array) {
+      const argsNode = node.children[1];
+      for (const argChild of argsNode.children) {
+        if (argChild.type !== ParseNodeType.Token) {
+          const arg = this.build(argChild);
+          if (arg instanceof Expression) {
+            args.push(arg);
+          }
+        }
+      }
+    }
+    
+    return new FunctionCall(callee, args);
+  }
+
+  private buildObjectLiteral(node: ParseNode): ObjectLiteral {
+    const properties: ObjectProperty[] = [];
+    
+    for (const child of node.children) {
+      if (child.type === ParseNodeType.Property) {
+        const prop = this.build(child);
+        if (prop instanceof ObjectProperty) {
+          properties.push(prop);
+        }
+      }
+    }
+    
+    return new ObjectLiteral(properties);
+  }
+
+  private buildObjectProperty(node: ParseNode): ObjectProperty {
+    // Property structure: [key, :, value]
+    const nonTokenChildren = node.children.filter(child => 
+      child.type !== ParseNodeType.Token || child.token?.type !== 'COLON' as any
+    );
+    
+    if (nonTokenChildren.length < 2) {
+      throw new Error('Object property missing key or value');
+    }
+    
+    const keyNode = nonTokenChildren[0];
+    const valueNode = nonTokenChildren[1];
+    
+    let key: string | Expression;
+    if (keyNode.type === ParseNodeType.Identifier && keyNode.token) {
+      key = keyNode.token.value;
+    } else {
+      const keyExpr = this.build(keyNode);
+      if (keyExpr instanceof Expression) {
+        key = keyExpr;
+      } else {
+        throw new Error('Invalid object property key');
+      }
+    }
+    
+    const value = this.build(valueNode);
+    if (!(value instanceof Expression)) {
+      throw new Error('Object property value must be an expression');
+    }
+    
+    return new ObjectProperty(key, value);
+  }
+
+  private buildArrayLiteral(node: ParseNode): ArrayLiteral {
+    const elements: Expression[] = [];
+    
+    for (const child of node.children) {
+      if (child.type !== ParseNodeType.Token) {
+        const element = this.build(child);
+        if (element instanceof Expression) {
+          elements.push(element);
+        }
+      }
+    }
+    
+    return new ArrayLiteral(elements);
+  }
+}
+
+// Utility function to build AST from parse tree
+export function buildAST(parseTree: ParseNode): ASTNode {
+  const builder = new ASTBuilder();
+  return builder.build(parseTree);
+}
+
+// Usage example:
+// const parseTree = parser.parse();
+// const ast = buildAST(parseTree);
+// console.log(ast);

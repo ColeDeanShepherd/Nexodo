@@ -1,5 +1,6 @@
 import { createReplParser } from './grammar'
 import { Lexer } from './lexer'
+import { buildAST } from './ast'
 import { _elem, _h1, _div, _input } from './ui-lib'
 
 class REPL {
@@ -21,7 +22,7 @@ class REPL {
     this.inputElement = _input({ 
       class: 'repl-input', 
       type: 'text',
-      placeholder: 'Enter JavaScript...'
+      placeholder: 'Enter expressions (e.g., x = 42, {name: "John"}, calc(1, 2))...'
     }) as HTMLInputElement
     
     const inputContainer = _div({ class: 'repl-input-container' }, [prompt, this.inputElement])
@@ -30,7 +31,7 @@ class REPL {
     container.appendChild(replContainer)
     
     this.setupEventListeners()
-    this.addOutput('Welcome to Nexodo REPL! Enter JavaScript expressions.', 'info')
+    this.addOutput('Welcome to Nexodo REPL! Enter expressions and see the parsed AST.', 'info')
   }
 
   private setupEventListeners() {
@@ -57,17 +58,85 @@ class REPL {
     this.addOutput(`> ${input}`, 'input')
     
     try {
+      // Tokenization
       const lexer = new Lexer();
       const tokens = lexer.tokenize(input);
+      
+      // Parsing (concrete syntax tree)
       const parser = createReplParser(tokens);
       const parseTree = parser.parse();
-      const result = JSON.stringify(parseTree, null, 2);
-      //const result = eval(input)
-      this.addOutput(String(result), 'output')
+      
+      // AST Building (abstract syntax tree)
+      const ast = buildAST(parseTree);
+      
+      // For now, just display the AST structure
+      const result = this.formatAST(ast);
+      this.addOutput(result, 'output')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       this.addOutput(`Error: ${errorMessage}`, 'error')
     }
+  }
+
+  private formatAST(node: any, indent: number = 0): string {
+    const spaces = '  '.repeat(indent);
+    let result = `${spaces}${node.nodeType}`;
+    
+    // Add specific information based on node type
+    if (node.nodeType === 'NumberLiteral') {
+      result += ` (${node.value})`;
+    } else if (node.nodeType === 'StringLiteral') {
+      result += ` ("${node.value}")`;
+    } else if (node.nodeType === 'BooleanLiteral') {
+      result += ` (${node.value})`;
+    } else if (node.nodeType === 'Identifier') {
+      result += ` (${node.name})`;
+    }
+    
+    // Recursively format child nodes
+    const children = this.getChildNodes(node);
+    for (const child of children) {
+      result += '\n' + this.formatAST(child, indent + 1);
+    }
+    
+    return result;
+  }
+
+  private getChildNodes(node: any): any[] {
+    const children: any[] = [];
+    
+    if (node.statements) {
+      children.push(...node.statements);
+    }
+    if (node.identifier) {
+      children.push(node.identifier);
+    }
+    if (node.value) {
+      children.push(node.value);
+    }
+    if (node.callee) {
+      children.push(node.callee);
+    }
+    if (node.args) {
+      children.push(...node.args);
+    }
+    if (node.properties) {
+      children.push(...node.properties);
+    }
+    if (node.key && typeof node.key === 'object') {
+      children.push(node.key);
+    }
+    if (node.elements) {
+      children.push(...node.elements);
+    }
+    if (node.object) {
+      children.push(node.object);
+    }
+    if (node.property) {
+      children.push(node.property);
+    }
+    
+    return children;
   }
 
   private navigateHistory(direction: number) {
