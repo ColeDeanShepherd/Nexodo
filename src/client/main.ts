@@ -15,6 +15,16 @@ class REPL {
 
   constructor(container: HTMLElement) {
     this.setupREPL(container)
+    this.loadEnvironment()
+  }
+
+  private loadEnvironment() {
+    try {
+      this.interpreter.loadEnvironmentFromStorage()
+      this.addOutput('Loaded previous session variables from storage', 'info')
+    } catch (error) {
+      console.warn('Failed to load environment:', error)
+    }
   }
 
   private setupREPL(container: HTMLElement) {
@@ -95,6 +105,9 @@ class REPL {
           this.addOutput(line, 'output');
         }
       }
+
+      // Save environment to storage after successful execution
+      this.interpreter.saveEnvironmentToStorage();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       this.addOutput(`Error: ${errorMessage}`, 'error')

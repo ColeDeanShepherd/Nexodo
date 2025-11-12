@@ -351,6 +351,155 @@ export class Interpreter {
   getOutput(): string[] {
     return [...this.output];
   }
+
+  // Save user-defined bindings to localStorage (excluding built-ins)
+  saveEnvironmentToStorage(): void {
+    const userBindings = this.getUserDefinedBindings();
+    const serializedBindings = this.serializeBindings(userBindings);
+    localStorage.setItem('nexodo-environment', JSON.stringify(serializedBindings));
+  }
+
+  // Load user-defined bindings from localStorage
+  loadEnvironmentFromStorage(): void {
+    const stored = localStorage.getItem('nexodo-environment');
+    if (!stored) return;
+
+    try {
+      const serializedBindings = JSON.parse(stored);
+      const deserializedBindings = this.deserializeBindings(serializedBindings);
+      
+      // Apply the loaded bindings to current environment
+      for (const [name, value] of deserializedBindings) {
+        this.environment.define(name, value);
+      }
+    } catch (error) {
+      console.warn('Failed to load environment from storage:', error);
+    }
+  }
+
+  // Get only user-defined bindings (exclude built-ins like console, Math)
+  private getUserDefinedBindings(): Map<string, RuntimeValue> {
+    const builtins = new Set(['console', 'Math']);
+    const allBindings = this.environment.getAllBindings();
+    const userBindings = new Map<string, RuntimeValue>();
+
+    for (const [name, value] of allBindings) {
+      if (!builtins.has(name)) {
+        userBindings.set(name, value);
+      }
+    }
+
+    return userBindings;
+  }
+
+  // Serialize runtime values to JSON-compatible format
+  private serializeBindings(bindings: Map<string, RuntimeValue>): Record<string, any> {
+    const result: Record<string, any> = {};
+
+    for (const [name, value] of bindings) {
+      result[name] = this.serializeValue(value);
+    }
+
+    return result;
+  }
+
+  private serializeValue(value: RuntimeValue): any {
+    if (value === null || value === undefined) {
+      return { type: 'null', value: null };
+    }
+
+    if (typeof value === 'number') {
+      return { type: 'number', value };
+    }
+
+    if (typeof value === 'string') {
+      return { type: 'string', value };
+    }
+
+    if (typeof value === 'boolean') {
+      return { type: 'boolean', value };
+    }
+
+    if (typeof value === 'function') {
+      // Functions cannot be serialized, skip them
+      return { type: 'function', value: '[Function - not serializable]' };
+    }
+
+    if (Array.isArray(value)) {
+      return {
+        type: 'array',
+        value: value.map(item => this.serializeValue(item))
+      };
+    }
+
+    if (typeof value === 'object') {
+      const serializedObj: Record<string, any> = {};
+      for (const [key, val] of Object.entries(value)) {
+        serializedObj[key] = this.serializeValue(val);
+      }
+      return {
+        type: 'object',
+        value: serializedObj
+      };
+    }
+
+    return { type: 'unknown', value: String(value) };
+  }
+
+  // Deserialize JSON data back to runtime values
+  private deserializeBindings(serializedBindings: Record<string, any>): Map<string, RuntimeValue> {
+    const bindings = new Map<string, RuntimeValue>();
+
+    for (const [name, serializedValue] of Object.entries(serializedBindings)) {
+      const value = this.deserializeValue(serializedValue);
+      bindings.set(name, value);
+    }
+
+    return bindings;
+  }
+
+  private deserializeValue(serialized: any): RuntimeValue {
+    if (!serialized || typeof serialized !== 'object' || !serialized.type) {
+      return null;
+    }
+
+    switch (serialized.type) {
+      case 'null':
+        return null;
+
+      case 'number':
+        return typeof serialized.value === 'number' ? serialized.value : 0;
+
+      case 'string':
+        return typeof serialized.value === 'string' ? serialized.value : '';
+
+      case 'boolean':
+        return Boolean(serialized.value);
+
+      case 'function':
+        // Functions cannot be deserialized, return null
+        return null;
+
+      case 'array':
+        if (Array.isArray(serialized.value)) {
+          return serialized.value.map((item: any) => this.deserializeValue(item));
+        }
+        return [];
+
+      case 'object':
+        if (serialized.value && typeof serialized.value === 'object') {
+          const obj: RuntimeObject = {};
+          for (const [key, val] of Object.entries(serialized.value)) {
+            obj[key] = this.deserializeValue(val);
+          }
+          return obj;
+        }
+        return {};
+
+      default:
+        return null;
+    }
+  }
 }
 
 // Utility functions
