@@ -37,10 +37,21 @@ function buildFunctionCall(parser: RecursiveDescentParser, left: ParseNode): Par
 }
 
 function buildMemberAccess(parser: RecursiveDescentParser, left: ParseNode): ParseNode {
-  // Member access is disabled for now - needs proper dot token handling
-  const result = new ParseNode(ParseNodeType.Expression);
-  result.addChild(left);
-  return result;
+  parser.advance(); // consume '.'
+  
+  // Expect an identifier after the dot
+  if (!parser.check(TokenType.IDENTIFIER)) {
+    throw new Error('Expected identifier after dot');
+  }
+  
+  const identifier = parser.advance();
+  const identifierNode = new ParseNode(ParseNodeType.Identifier, identifier);
+  
+  const memberAccess = new ParseNode(ParseNodeType.MemberAccess);
+  memberAccess.addChild(left);
+  memberAccess.addChild(identifierNode);
+  
+  return memberAccess;
 }
 
 // Grammar definition for REPL
@@ -64,11 +75,12 @@ export function createReplGrammar(): Record<string, GrammarRule> {
   // Non-binding expressions
   grammar['non_binding_expression'] = new NonTerminal('postfix_expression');
 
-  // Postfix operations (function calls only for now)
+  // Postfix operations (function calls and member access)
   grammar['postfix_expression'] = new PostfixOperations(
     new NonTerminal('primary'),
     [
-      { triggerToken: TokenType.LPAREN, buildNode: buildFunctionCall }
+      { triggerToken: TokenType.LPAREN, buildNode: buildFunctionCall },
+      { triggerToken: TokenType.DOT, buildNode: buildMemberAccess }
     ]
   );
 

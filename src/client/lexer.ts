@@ -20,6 +20,7 @@ export enum TokenType {
   RBRACKET = 'RBRACKET',
   COMMA = 'COMMA',
   COLON = 'COLON',
+  DOT = 'DOT',
   
   // Special
   WHITESPACE = 'WHITESPACE',
@@ -67,6 +68,7 @@ export class Lexer {
     { type: TokenType.RBRACKET, regex: /^\]/ },
     { type: TokenType.COMMA, regex: /^,/ },
     { type: TokenType.COLON, regex: /^:/ },
+    { type: TokenType.DOT, regex: /^\./ },
     
     // Identifiers (must come after keywords)
     { type: TokenType.IDENTIFIER, regex: /^[a-zA-Z_][a-zA-Z0-9_]*/ }
@@ -154,13 +156,3 @@ export class Lexer {
     this.position += text.length;
   }
 }
-
-// Usage example:
-// const lexer = new Lexer();
-// const tokens = lexer.tokenize(`
-//   x = 42
-//   name = "John"
-//   config = { port: 8080, enabled: true }
-//   result = calculate(x, y)
-//   items = [1, 2, 3]
-// `);

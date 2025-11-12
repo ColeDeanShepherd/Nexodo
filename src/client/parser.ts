@@ -11,6 +11,7 @@ export enum ParseNodeType {
   Object = 'Object',
   Array = 'Array',
   Property = 'Property',
+  MemberAccess = 'MemberAccess',
   Token = 'Token'
 }
 

@@ -145,6 +145,8 @@ export class ASTBuilder {
         return this.buildArrayLiteral(parseNode);
       case ParseNodeType.Property:
         return this.buildObjectProperty(parseNode);
+      case ParseNodeType.MemberAccess:
+        return this.buildMemberAccess(parseNode);
       default:
         throw new Error(`Unsupported parse node type: ${parseNode.type}`);
     }
@@ -331,6 +333,28 @@ export class ASTBuilder {
     }
     
     return new ArrayLiteral(elements);
+  }
+
+  private buildMemberAccess(node: ParseNode): MemberAccess {
+    // MemberAccess structure: [object expression, identifier]
+    if (node.children.length < 2) {
+      throw new Error('Member access missing object or property');
+    }
+    
+    const objectNode = node.children[0];
+    const propertyNode = node.children[1];
+    
+    const object = this.build(objectNode);
+    if (!(object instanceof Expression)) {
+      throw new Error('Member access object must be an expression');
+    }
+    
+    const property = this.build(propertyNode);
+    if (!(property instanceof Identifier)) {
+      throw new Error('Member access property must be an identifier');
+    }
+    
+    return new MemberAccess(object, property);
   }
 }
 
