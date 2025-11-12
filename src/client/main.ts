@@ -80,20 +80,6 @@ class REPL {
       const executionResult = this.interpreter.interpret(ast);
       
       // Display results
-      this.addOutput('--- AST ---', 'info');
-      this.addOutput(this.formatAST(ast), 'output');
-      
-      this.addOutput('--- Type Analysis ---', 'info');
-      if (typeAnalysis.errors.length > 0) {
-        for (const error of typeAnalysis.errors) {
-          this.addOutput(formatTypeError(error), 'error');
-        }
-      } else {
-        this.addOutput('✓ No type errors', 'info');
-      }
-      this.addOutput(`Type: ${formatType(typeAnalysis.type)}`, 'output');
-      
-      this.addOutput('--- Execution ---', 'info');
       if (executionResult.errors.length > 0) {
         for (const error of executionResult.errors) {
           this.addOutput(formatRuntimeError(error), 'error');
@@ -109,85 +95,10 @@ class REPL {
           this.addOutput(line, 'output');
         }
       }
-      
-      // Show current runtime environment (variables with values)
-      const runtimeBindings = this.interpreter.getEnvironment().getAllBindings();
-      if (runtimeBindings.size > 0) {
-        this.addOutput('--- Variables ---', 'info');
-        const vars = Array.from(runtimeBindings.entries())
-          .filter(([name]) => !['console', 'Math'].includes(name)) // Hide built-ins
-          .map(([name, value]) => `${name} = ${formatRuntimeValue(value)}`)
-          .join('\n');
-        if (vars) {
-          this.addOutput(vars, 'output');
-        }
-      }
-      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       this.addOutput(`Error: ${errorMessage}`, 'error')
     }
-  }
-
-  private formatAST(node: any, indent: number = 0): string {
-    const spaces = '  '.repeat(indent);
-    let result = `${spaces}${node.nodeType}`;
-    
-    // Add specific information based on node type
-    if (node.nodeType === 'NumberLiteral') {
-      result += ` (${node.value})`;
-    } else if (node.nodeType === 'StringLiteral') {
-      result += ` ("${node.value}")`;
-    } else if (node.nodeType === 'BooleanLiteral') {
-      result += ` (${node.value})`;
-    } else if (node.nodeType === 'Identifier') {
-      result += ` (${node.name})`;
-    }
-    
-    // Recursively format child nodes
-    const children = this.getChildNodes(node);
-    for (const child of children) {
-      result += '\n' + this.formatAST(child, indent + 1);
-    }
-    
-    return result;
-  }
-
-  private getChildNodes(node: any): any[] {
-    const children: any[] = [];
-    
-    if (node.statements) {
-      children.push(...node.statements);
-    }
-    if (node.identifier) {
-      children.push(node.identifier);
-    }
-    if (node.value) {
-      children.push(node.value);
-    }
-    if (node.callee) {
-      children.push(node.callee);
-    }
-    if (node.args) {
-      children.push(...node.args);
-    }
-    if (node.properties) {
-      children.push(...node.properties);
-    }
-    if (node.key && typeof node.key === 'object') {
-      children.push(node.key);
-    }
-    if (node.elements) {
-      children.push(...node.elements);
-    }
-    if (node.object) {
-      children.push(node.object);
-    }
-    if (node.property) {
-      children.push(node.property);
-    }
-    
-    return children;
   }
 
   private navigateHistory(direction: number) {
