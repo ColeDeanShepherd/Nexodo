@@ -1,3 +1,4 @@
+import { createReplParser } from './grammar'
 import { Lexer } from './lexer'
 import { _elem, _h1, _div, _input } from './ui-lib'
 
@@ -58,7 +59,9 @@ class REPL {
     try {
       const lexer = new Lexer();
       const tokens = lexer.tokenize(input);
-      const result = JSON.stringify(tokens, null, 2);
+      const parser = createReplParser(tokens);
+      const parseTree = parser.parse();
+      const result = JSON.stringify(parseTree, null, 2);
       //const result = eval(input)
       this.addOutput(String(result), 'output')
     } catch (error) {
