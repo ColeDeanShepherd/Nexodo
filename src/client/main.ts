@@ -2,6 +2,7 @@ import { createReplParser } from './grammar'
 import { Lexer } from './lexer'
 import { buildAST } from './ast'
 import { TypeChecker, formatTypeError, formatType } from './type-checker'
+import { Interpreter, formatRuntimeValue, formatRuntimeError } from './interpreter'
 import { _elem, _h1, _div, _input } from './ui-lib'
 
 class REPL {
@@ -10,6 +11,7 @@ class REPL {
   private history: string[] = []
   private historyIndex = -1
   private typeChecker = new TypeChecker()
+  private interpreter = new Interpreter()
 
   constructor(container: HTMLElement) {
     this.setupREPL(container)
@@ -24,7 +26,7 @@ class REPL {
     this.inputElement = _input({ 
       class: 'repl-input', 
       type: 'text',
-      placeholder: 'Enter expressions (e.g., x = 42, {name: "John"}, calc(1, 2))...'
+      placeholder: 'Try: x = 42, {name: "John"}, [1,2,3], console.log("hello")...'
     }) as HTMLInputElement
     
     const inputContainer = _div({ class: 'repl-input-container' }, [prompt, this.inputElement])
@@ -33,7 +35,7 @@ class REPL {
     container.appendChild(replContainer)
     
     this.setupEventListeners()
-    this.addOutput('Welcome to Nexodo REPL! Enter expressions and see AST + type analysis.', 'info')
+    this.addOutput('Welcome to Nexodo REPL! Complete compiler pipeline: Lexer → Parser → AST → Type Checker → Interpreter', 'info')
   }
 
   private setupEventListeners() {
@@ -74,6 +76,9 @@ class REPL {
       // Type Checking & Semantic Analysis
       const typeAnalysis = this.typeChecker.analyze(ast);
       
+      // Interpretation & Execution
+      const executionResult = this.interpreter.interpret(ast);
+      
       // Display results
       this.addOutput('--- AST ---', 'info');
       this.addOutput(this.formatAST(ast), 'output');
@@ -86,16 +91,32 @@ class REPL {
       } else {
         this.addOutput('✓ No type errors', 'info');
       }
+      this.addOutput(`Type: ${formatType(typeAnalysis.type)}`, 'output');
       
-      this.addOutput(`Result type: ${formatType(typeAnalysis.type)}`, 'output');
+      this.addOutput('--- Execution ---', 'info');
+      if (executionResult.errors.length > 0) {
+        for (const error of executionResult.errors) {
+          this.addOutput(formatRuntimeError(error), 'error');
+        }
+      } else {
+        this.addOutput(`Value: ${formatRuntimeValue(executionResult.value)}`, 'output');
+      }
       
-      // Show current environment (variables in scope)
-      const bindings = this.typeChecker.getEnvironment().getAllBindings();
-      if (bindings.size > 0) {
-        this.addOutput('--- Variables in Scope ---', 'info');
-        const vars = Array.from(bindings.entries())
+      // Show console output if any
+      if (executionResult.output.length > 0) {
+        this.addOutput('--- Console Output ---', 'info');
+        for (const line of executionResult.output) {
+          this.addOutput(line, 'output');
+        }
+      }
+      
+      // Show current runtime environment (variables with values)
+      const runtimeBindings = this.interpreter.getEnvironment().getAllBindings();
+      if (runtimeBindings.size > 0) {
+        this.addOutput('--- Variables ---', 'info');
+        const vars = Array.from(runtimeBindings.entries())
           .filter(([name]) => !['console', 'Math'].includes(name)) // Hide built-ins
-          .map(([name, type]) => `${name}: ${formatType(type)}`)
+          .map(([name, value]) => `${name} = ${formatRuntimeValue(value)}`)
           .join('\n');
         if (vars) {
           this.addOutput(vars, 'output');
