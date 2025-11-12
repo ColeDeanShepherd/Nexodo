@@ -100,7 +100,7 @@ export function createReplGrammar(): Record<string, GrammarRule> {
   grammar['object'] = new Sequence(
     ParseNodeType.Object,
     new Terminal(TokenType.LBRACE),
-    new ZeroOrMore(new NonTerminal('object_property')),
+    new ZeroOrMore(new NonTerminal('object_property'), ParseNodeType.Token),
     new Terminal(TokenType.RBRACE)
   );
 
@@ -119,7 +119,7 @@ export function createReplGrammar(): Record<string, GrammarRule> {
   grammar['array'] = new Sequence(
     ParseNodeType.Array,
     new Terminal(TokenType.LBRACKET),
-    new ZeroOrMore(new NonTerminal('non_binding_expression')),
+    new ZeroOrMore(new NonTerminal('non_binding_expression'), ParseNodeType.Token),
     new Terminal(TokenType.RBRACKET)
   );
 
