@@ -6,7 +6,8 @@
     "watch:client": "bun build src/client/main.ts --outdir public/js --target browser --format esm --watch",
     "watch:server": "bun run --hot src/server/index.ts",
     "build": "bun run build:client",
-    "start": "bun run src/server/index.ts"
+    "start": "bun run src/server/index.ts",
+    "test": "bun test src/client/*.test.ts"
   },
   "dependencies": {
     "hono": "^4.10.4"
