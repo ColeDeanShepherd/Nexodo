@@ -1,8 +1,8 @@
-import { createReplParser } from './grammar'
-import { Lexer } from './lexer'
-import { buildAST } from './ast'
-import { TypeChecker, formatTypeError, formatType } from './type-checker'
-import { Interpreter, formatRuntimeValue, formatRuntimeError } from './interpreter'
+import { createReplParser } from './compiler/grammar'
+import { Lexer } from './compiler/lexer'
+import { buildAST } from './compiler/ast'
+import { TypeChecker, formatTypeError, formatType } from './compiler/type-checker'
+import { Interpreter, formatRuntimeValue, formatRuntimeError } from './compiler/interpreter'
 import { _elem, _h1, _div, _input } from './ui-lib'
 
 class REPL {
