@@ -1,6 +1,7 @@
 import { createReplParser } from './grammar'
 import { Lexer } from './lexer'
 import { buildAST } from './ast'
+import { TypeChecker, formatTypeError, formatType } from './type-checker'
 import { _elem, _h1, _div, _input } from './ui-lib'
 
 class REPL {
@@ -8,6 +9,7 @@ class REPL {
   private inputElement!: HTMLInputElement
   private history: string[] = []
   private historyIndex = -1
+  private typeChecker = new TypeChecker()
 
   constructor(container: HTMLElement) {
     this.setupREPL(container)
@@ -31,7 +33,7 @@ class REPL {
     container.appendChild(replContainer)
     
     this.setupEventListeners()
-    this.addOutput('Welcome to Nexodo REPL! Enter expressions and see the parsed AST.', 'info')
+    this.addOutput('Welcome to Nexodo REPL! Enter expressions and see AST + type analysis.', 'info')
   }
 
   private setupEventListeners() {
@@ -69,9 +71,37 @@ class REPL {
       // AST Building (abstract syntax tree)
       const ast = buildAST(parseTree);
       
-      // For now, just display the AST structure
-      const result = this.formatAST(ast);
-      this.addOutput(result, 'output')
+      // Type Checking & Semantic Analysis
+      const typeAnalysis = this.typeChecker.analyze(ast);
+      
+      // Display results
+      this.addOutput('--- AST ---', 'info');
+      this.addOutput(this.formatAST(ast), 'output');
+      
+      this.addOutput('--- Type Analysis ---', 'info');
+      if (typeAnalysis.errors.length > 0) {
+        for (const error of typeAnalysis.errors) {
+          this.addOutput(formatTypeError(error), 'error');
+        }
+      } else {
+        this.addOutput('✓ No type errors', 'info');
+      }
+      
+      this.addOutput(`Result type: ${formatType(typeAnalysis.type)}`, 'output');
+      
+      // Show current environment (variables in scope)
+      const bindings = this.typeChecker.getEnvironment().getAllBindings();
+      if (bindings.size > 0) {
+        this.addOutput('--- Variables in Scope ---', 'info');
+        const vars = Array.from(bindings.entries())
+          .filter(([name]) => !['console', 'Math'].includes(name)) // Hide built-ins
+          .map(([name, type]) => `${name}: ${formatType(type)}`)
+          .join('\n');
+        if (vars) {
+          this.addOutput(vars, 'output');
+        }
+      }
+      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       this.addOutput(`Error: ${errorMessage}`, 'error')
