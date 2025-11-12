@@ -106,8 +106,9 @@ export class MemberAccess extends Expression {
 export class Assignment extends ASTNode {
   readonly nodeType = 'Assignment';
   
+  // target can be a plain identifier (x) or a member access (obj.prop)
   constructor(
-    public identifier: Identifier,
+    public target: Identifier | MemberAccess,
     public value: Expression
   ) {
     super();
@@ -170,25 +171,28 @@ export class ASTBuilder {
   }
 
   private buildAssignment(node: ParseNode): Assignment {
-    // Assignment node structure: [Identifier, =, Expression]
-    const children = node.children.filter(child => child.type !== ParseNodeType.Token || child.token?.type !== 'ASSIGN' as any);
+    // Filter out token nodes except identifiers and member access
+    const nonTokenChildren = node.children.filter(child => 
+      child.type !== ParseNodeType.Token || 
+      (child.token?.type !== 'ASSIGN' as any)
+    );
     
-    if (children.length < 2) {
-      throw new Error('Invalid assignment structure');
+    if (nonTokenChildren.length !== 2) {
+      throw new Error('Assignment must have target and value');
     }
     
-    const identifier = this.build(children[0]);
-    const value = this.build(children[1]);
+    const targetNode = this.build(nonTokenChildren[0]);
+    const value = this.build(nonTokenChildren[1]);
     
-    if (!(identifier instanceof Identifier)) {
-      throw new Error('Assignment target must be an identifier');
+    if (!(targetNode instanceof Identifier) && !(targetNode instanceof MemberAccess)) {
+      throw new Error('Assignment target must be an identifier or member access');
     }
     
     if (!(value instanceof Expression)) {
       throw new Error('Assignment value must be an expression');
     }
     
-    return new Assignment(identifier, value);
+    return new Assignment(targetNode as Identifier | MemberAccess, value);
   }
 
   private buildExpression(node: ParseNode): Expression {
@@ -336,23 +340,22 @@ export class ASTBuilder {
   }
 
   private buildMemberAccess(node: ParseNode): MemberAccess {
-    // MemberAccess structure: [object expression, identifier]
-    if (node.children.length < 2) {
-      throw new Error('Member access missing object or property');
+    // Postfix member access structure: [object_expression, property_identifier]
+    // This is created by the postfix buildMemberAccess function in grammar.ts
+    
+    if (node.children.length !== 2) {
+      throw new Error(`MemberAccess expects 2 children (object, property), got ${node.children.length}`);
     }
     
     const objectNode = node.children[0];
     const propertyNode = node.children[1];
     
-    const object = this.build(objectNode);
-    if (!(object instanceof Expression)) {
-      throw new Error('Member access object must be an expression');
+    if (propertyNode.type !== ParseNodeType.Identifier) {
+      throw new Error('MemberAccess property must be an identifier');
     }
     
-    const property = this.build(propertyNode);
-    if (!(property instanceof Identifier)) {
-      throw new Error('Member access property must be an identifier');
-    }
+    const object = this.build(objectNode) as Expression;
+    const property = this.build(propertyNode) as Identifier;
     
     return new MemberAccess(object, property);
   }

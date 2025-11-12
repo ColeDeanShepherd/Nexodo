@@ -9,6 +9,7 @@ import {
   Choice,
   Optional,
   ZeroOrMore,
+  OneOrMore,
   PostfixOperations,
   PostfixOperation,
   GrammarRule
@@ -60,14 +61,14 @@ export function createReplGrammar(): Record<string, GrammarRule> {
 
   // Main expression rule - handles both bindings and other expressions
   grammar['expression'] = new Choice(
-    new NonTerminal('binding'),
+    new NonTerminal('assignment'), 
     new NonTerminal('non_binding_expression')
   );
 
-  // Binding: identifier = expression  
-  grammar['binding'] = new Sequence(
+  // Assignment: postfix_expression = expression (covers all assignable expressions)
+  grammar['assignment'] = new Sequence(
     ParseNodeType.Assignment,
-    new Terminal(TokenType.IDENTIFIER, ParseNodeType.Identifier),
+    new NonTerminal('postfix_expression'),
     new Terminal(TokenType.ASSIGN),
     new NonTerminal('non_binding_expression')
   );

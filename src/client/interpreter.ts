@@ -209,8 +209,40 @@ export class Interpreter {
 
   private evaluateAssignment(node: Assignment): RuntimeValue {
     const value = this.evaluateNode(node.value);
-    this.environment.define(node.identifier.name, value);
-    return value;
+    
+    // If target is an identifier
+    if (node.target.nodeType === 'Identifier') {
+      const identifier = node.target as Identifier;
+      this.environment.set(identifier.name, value);
+      return value;
+    }
+
+    // If target is member access
+    if (node.target.nodeType === 'MemberAccess') {
+      const member = node.target as MemberAccess;
+      
+      // For assignment, we need to be more careful about evaluating the object
+      // If the object itself is a member access, we need to allow undefined properties
+      let obj: RuntimeValue;
+      if (member.object.nodeType === 'MemberAccess') {
+        obj = this.evaluateMemberAccess(member.object as MemberAccess, true);
+      } else {
+        obj = this.evaluateNode(member.object);
+      }
+
+      if (obj === null || obj === undefined) {
+        throw new RuntimeError('Cannot set property on null or undefined', node);
+      }
+      if (typeof obj !== 'object') {
+        throw new RuntimeError('Cannot set property on non-object value', node);
+      }
+
+      const propName = member.property.name;
+      (obj as any)[propName] = value;
+      return value;
+    }
+
+    throw new RuntimeError('Invalid assignment target', node);
   }
 
   private evaluateIdentifier(node: Identifier): RuntimeValue {
@@ -272,7 +304,7 @@ export class Interpreter {
     }
   }
 
-  private evaluateMemberAccess(node: MemberAccess): RuntimeValue {
+  private evaluateMemberAccess(node: MemberAccess, allowUndefined: boolean = false): RuntimeValue {
     const object = this.evaluateNode(node.object);
     
     if (object === null || object === undefined) {
@@ -286,7 +318,7 @@ export class Interpreter {
     const propertyName = node.property.name;
     const value = (object as any)[propertyName];
     
-    if (value === undefined) {
+    if (value === undefined && !allowUndefined) {
       throw new RuntimeError(`Property '${propertyName}' does not exist`, node);
     }
     

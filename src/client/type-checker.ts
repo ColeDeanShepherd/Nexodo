@@ -249,11 +249,32 @@ export class TypeChecker {
 
   private checkAssignment(node: Assignment): Type {
     const valueType = this.checkNode(node.value);
-    
-    // Define the variable in the current environment
-    this.environment.define(node.identifier.name, valueType);
-    
-    return valueType;
+
+    // If assignment target is an identifier, define the variable
+    if ((node as any).target && (node as any).target.nodeType === 'Identifier') {
+      const identifier = (node as any).target as Identifier;
+      this.environment.define(identifier.name, valueType);
+      return valueType;
+    }
+
+    // If assignment target is a member access, update the object's property type
+    if ((node as any).target && (node as any).target.nodeType === 'MemberAccess') {
+      const member = (node as any).target as MemberAccess;
+      const objectType = this.checkNode(member.object);
+
+      if (!(objectType instanceof ObjectType)) {
+        this.error(`Cannot assign property on non-object type: ${objectType.toString()}`, node as any);
+        return UNKNOWN_TYPE;
+      }
+
+      const propName = member.property.name;
+      // Add or update the property type on the object
+      objectType.properties.set(propName, valueType);
+      return valueType;
+    }
+
+    this.error('Invalid assignment target', node as any);
+    return UNKNOWN_TYPE;
   }
 
   private checkIdentifier(node: Identifier): Type {
