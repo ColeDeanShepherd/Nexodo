@@ -353,16 +353,25 @@ export class Interpreter {
   }
 
   // Save user-defined bindings to server API (excluding built-ins)
-  async saveEnvironmentToStorage(): Promise<void> {
+  async saveEnvironmentToStorage(getToken?: () => string | null): Promise<void> {
     const userBindings = this.getUserDefinedBindings();
     const serializedBindings = this.serializeBindings(userBindings);
     
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (getToken) {
+        const token = getToken();
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+      
       const response = await fetch('/api/db/value', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ value: JSON.stringify(serializedBindings) }),
       });
       
@@ -376,9 +385,18 @@ export class Interpreter {
   }
 
   // Load user-defined bindings from server API
-  async loadEnvironmentFromStorage(): Promise<void> {
+  async loadEnvironmentFromStorage(getToken?: () => string | null): Promise<void> {
     try {
-      const response = await fetch('/api/db/value');
+      const headers: Record<string, string> = {};
+      
+      if (getToken) {
+        const token = getToken();
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+      
+      const response = await fetch('/api/db/value', { headers });
       
       if (response.status === 404) {
         // No saved environment exists yet
