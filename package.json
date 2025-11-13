@@ -12,6 +12,7 @@
   "dependencies": {
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.15.6",
+    "dotenv": "^17.2.3",
     "hono": "^4.10.4",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3"

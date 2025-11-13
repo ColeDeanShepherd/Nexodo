@@ -259,6 +259,13 @@ class REPL {
       
       // Type Checking & Semantic Analysis
       const typeAnalysis = this.typeChecker.analyze(ast);
+
+      if (typeAnalysis.errors.length > 0) {
+        for (const error of typeAnalysis.errors) {
+          this.addOutput(formatTypeError(error), 'error');
+        }
+        return; // Stop execution if there are type errors
+      }
       
       // Interpretation & Execution
       const executionResult = this.interpreter.interpret(ast);

@@ -3,6 +3,12 @@ import { html, raw } from 'hono/html'
 import { serveStatic } from 'hono/bun'
 import { Pool } from 'pg'
 import * as jwt from 'jsonwebtoken'
+import { config } from 'dotenv'
+
+// Load environment variables from .env file (only in development)
+if (process.env.NODE_ENV !== 'production') {
+  config()
+}
 
 const app = new Hono()
 

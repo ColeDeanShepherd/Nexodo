@@ -1,2 +1,6 @@
 node_modules/
 public/js/
+
+# Environment variables
+.env
+.env.local
