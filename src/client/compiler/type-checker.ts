@@ -79,6 +79,23 @@ export class ArrayType extends Type {
   toString(): string {
     return `${this.elementType.toString()}[]`;
   }
+
+  // Get array method types
+  getMethodType(methodName: string): Type | undefined {
+    switch (methodName) {
+      case 'add':
+      case 'push':
+        // add/push takes an element and returns the array length (number)
+        return new FunctionType([this.elementType], NUMBER_TYPE);
+      case 'pop':
+        // pop returns the element type or undefined
+        return new FunctionType([], this.elementType);
+      case 'length':
+        return NUMBER_TYPE;
+      default:
+        return undefined;
+    }
+  }
 }
 
 export class FunctionType extends Type {
@@ -368,7 +385,7 @@ export class TypeChecker {
 
   private checkArrayLiteral(node: ArrayLiteral): Type {
     if (node.elements.length === 0) {
-      // Empty array - assume unknown element type for now
+      // Empty array - create a flexible array that can accept any element type
       return new ArrayType(UNKNOWN_TYPE);
     }
     
@@ -380,7 +397,7 @@ export class TypeChecker {
     const allSameType = elementTypes.every(type => type.equals(firstType));
     
     if (!allSameType) {
-      this.error('Array elements must have the same type', node as any);
+      // Mixed types - use unknown element type for flexibility
       return new ArrayType(UNKNOWN_TYPE);
     }
     
@@ -422,6 +439,16 @@ export class TypeChecker {
 
   private checkMemberAccess(node: MemberAccess): Type {
     const objectType = this.checkNode(node.object);
+    
+    // Handle array methods
+    if (objectType instanceof ArrayType) {
+      const methodType = objectType.getMethodType(node.property.name);
+      if (methodType) {
+        return methodType;
+      }
+      this.error(`Property '${node.property.name}' does not exist on array type`, node as any);
+      return UNKNOWN_TYPE;
+    }
     
     if (!(objectType instanceof ObjectType)) {
       this.error(`Cannot access property of non-object type: ${objectType.toString()}`, node as any);

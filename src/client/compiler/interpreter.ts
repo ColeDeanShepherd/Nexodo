@@ -311,6 +311,37 @@ export class Interpreter {
       throw new RuntimeError('Cannot access property of null or undefined', node);
     }
     
+    // Handle array methods
+    if (Array.isArray(object)) {
+      const propertyName = node.property.name;
+      
+      switch (propertyName) {
+        case 'add':
+        case 'push':
+          return (...items: RuntimeValue[]) => {
+            (object as RuntimeArray).push(...items);
+            return object.length;
+          };
+        case 'pop':
+          return () => {
+            const result = (object as RuntimeArray).pop();
+            return result !== undefined ? result : null;
+          };
+        case 'length':
+          return object.length;
+        default:
+          // Check if it's a native array method
+          const nativeMethod = (object as any)[propertyName];
+          if (typeof nativeMethod === 'function') {
+            return nativeMethod.bind(object);
+          }
+          if (!allowUndefined) {
+            throw new RuntimeError(`Property '${propertyName}' does not exist on array`, node);
+          }
+          return null;
+      }
+    }
+    
     if (typeof object !== 'object') {
       throw new RuntimeError(`Cannot access property of ${typeof object}`, node);
     }
