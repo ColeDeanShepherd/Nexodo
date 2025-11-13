@@ -102,6 +102,17 @@ export class MemberAccess extends Expression {
   }
 }
 
+export class ArrayAccess extends Expression {
+  readonly nodeType = 'ArrayAccess';
+  
+  constructor(
+    public object: Expression,
+    public index: Expression
+  ) {
+    super();
+  }
+}
+
 // Assignments
 export class Assignment extends ASTNode {
   readonly nodeType = 'Assignment';
@@ -148,6 +159,8 @@ export class ASTBuilder {
         return this.buildObjectProperty(parseNode);
       case ParseNodeType.MemberAccess:
         return this.buildMemberAccess(parseNode);
+      case ParseNodeType.ArrayAccess:
+        return this.buildArrayAccess(parseNode);
       default:
         throw new Error(`Unsupported parse node type: ${parseNode.type}`);
     }
@@ -358,6 +371,23 @@ export class ASTBuilder {
     const property = this.build(propertyNode) as Identifier;
     
     return new MemberAccess(object, property);
+  }
+
+  private buildArrayAccess(node: ParseNode): ArrayAccess {
+    // Postfix array access structure: [object_expression, index_expression]
+    // This is created by the postfix buildArrayAccess function in grammar.ts
+    
+    if (node.children.length !== 2) {
+      throw new Error(`ArrayAccess expects 2 children (object, index), got ${node.children.length}`);
+    }
+    
+    const objectNode = node.children[0];
+    const indexNode = node.children[1];
+    
+    const object = this.build(objectNode) as Expression;
+    const index = this.build(indexNode) as Expression;
+    
+    return new ArrayAccess(object, index);
   }
 }
 

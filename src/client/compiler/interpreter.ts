@@ -12,6 +12,7 @@ import {
   ArrayLiteral,
   FunctionCall,
   MemberAccess,
+  ArrayAccess,
   Program
 } from './ast';
 
@@ -192,6 +193,8 @@ export class Interpreter {
         return this.evaluateFunctionCall(node as FunctionCall);
       case 'MemberAccess':
         return this.evaluateMemberAccess(node as MemberAccess);
+      case 'ArrayAccess':
+        return this.evaluateArrayAccess(node as ArrayAccess);
       default:
         throw new RuntimeError(`Unknown node type: ${node.nodeType}`, node);
     }
@@ -354,6 +357,31 @@ export class Interpreter {
     }
     
     return value;
+  }
+
+  private evaluateArrayAccess(node: ArrayAccess): RuntimeValue {
+    const object = this.evaluateNode(node.object);
+    const index = this.evaluateNode(node.index);
+    
+    // Check if object is an array
+    if (!Array.isArray(object)) {
+      throw new RuntimeError(`Cannot index non-array value: ${typeof object}`, node);
+    }
+    
+    // Check if index is a number
+    if (typeof index !== 'number') {
+      throw new RuntimeError(`Array index must be a number, got ${typeof index}`, node);
+    }
+    
+    // Check if index is within bounds (allow negative indices for Python-like behavior)
+    const array = object as RuntimeArray;
+    const actualIndex = index < 0 ? array.length + index : index;
+    
+    if (actualIndex < 0 || actualIndex >= array.length) {
+      throw new RuntimeError(`Array index ${index} out of bounds for array of length ${array.length}`, node);
+    }
+    
+    return array[actualIndex];
   }
 
   private valueToString(value: RuntimeValue): string {

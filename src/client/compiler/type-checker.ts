@@ -12,6 +12,7 @@ import {
   ArrayLiteral,
   FunctionCall,
   MemberAccess,
+  ArrayAccess,
   Program
 } from './ast';
 import { RuntimeEnvironment, RuntimeValue } from './interpreter';
@@ -307,6 +308,8 @@ export class TypeChecker {
         return this.checkFunctionCall(node as FunctionCall);
       case 'MemberAccess':
         return this.checkMemberAccess(node as MemberAccess);
+      case 'ArrayAccess':
+        return this.checkArrayAccess(node as ArrayAccess);
       default:
         this.error(`Unknown node type: ${node.nodeType}`, node);
         return UNKNOWN_TYPE;
@@ -462,6 +465,26 @@ export class TypeChecker {
     }
     
     return propertyType;
+  }
+
+  private checkArrayAccess(node: ArrayAccess): Type {
+    const objectType = this.checkNode(node.object);
+    const indexType = this.checkNode(node.index);
+    
+    // Check if object is an array
+    if (!(objectType instanceof ArrayType)) {
+      this.error(`Cannot index non-array type: ${objectType.toString()}`, node as any);
+      return UNKNOWN_TYPE;
+    }
+    
+    // Check if index is a number
+    if (!indexType.equals(NUMBER_TYPE)) {
+      this.error(`Array index must be a number, got ${indexType.toString()}`, node as any);
+      return UNKNOWN_TYPE;
+    }
+    
+    // Return the element type of the array
+    return objectType.elementType;
   }
 
   private isAssignable(from: Type, to: Type): boolean {

@@ -80,6 +80,28 @@ function buildMemberAccess(parser: RecursiveDescentParser, left: ParseNode): Par
   return memberAccess;
 }
 
+function buildArrayAccess(parser: RecursiveDescentParser, left: ParseNode): ParseNode {
+  parser.advance(); // consume '['
+  
+  // Parse the index expression
+  const indexExpr = parser.parseRule('non_binding_expression');
+  if (!indexExpr) {
+    throw new Error('Expected index expression');
+  }
+  
+  // Expect closing bracket
+  if (!parser.check(TokenType.RBRACKET)) {
+    throw new Error('Expected closing bracket after array index');
+  }
+  parser.advance(); // consume ']'
+  
+  const arrayAccess = new ParseNode(ParseNodeType.ArrayAccess);
+  arrayAccess.addChild(left);
+  arrayAccess.addChild(indexExpr);
+  
+  return arrayAccess;
+}
+
 // Grammar definition for REPL
 export function createReplGrammar(): Record<string, GrammarRule> {
   const grammar: Record<string, GrammarRule> = {};
@@ -101,12 +123,13 @@ export function createReplGrammar(): Record<string, GrammarRule> {
   // Non-binding expressions
   grammar['non_binding_expression'] = new NonTerminal('postfix_expression');
 
-  // Postfix operations (function calls and member access)
+  // Postfix operations (function calls, member access, and array indexing)
   grammar['postfix_expression'] = new PostfixOperations(
     new NonTerminal('primary'),
     [
       { triggerToken: TokenType.LPAREN, buildNode: buildFunctionCall },
-      { triggerToken: TokenType.DOT, buildNode: buildMemberAccess }
+      { triggerToken: TokenType.DOT, buildNode: buildMemberAccess },
+      { triggerToken: TokenType.LBRACKET, buildNode: buildArrayAccess }
     ]
   );
 
