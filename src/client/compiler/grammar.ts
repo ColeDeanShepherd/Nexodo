@@ -19,17 +19,42 @@ import {
 function buildFunctionCall(parser: RecursiveDescentParser, left: ParseNode): ParseNode {
   parser.advance(); // consume '('
   
-  // Parse arguments - for now, just create an empty argument list
+  // Parse arguments
   const args = new ParseNode(ParseNodeType.Array);
   
-  // Skip to closing paren (simplified for now)
-  while (!parser.check(TokenType.RPAREN) && !parser.isAtEnd()) {
-    parser.advance();
-  }
-  
+  // Handle empty argument list
   if (parser.check(TokenType.RPAREN)) {
     parser.advance(); // consume ')'
+    const funcCall = new ParseNode(ParseNodeType.FunctionCall);
+    funcCall.addChild(left);
+    funcCall.addChild(args);
+    return funcCall;
   }
+  
+  // Parse first argument
+  const firstArg = parser.parseRule('non_binding_expression');
+  if (!firstArg) {
+    throw new Error('Expected argument expression');
+  }
+  args.addChild(firstArg);
+  
+  // Parse additional arguments separated by commas
+  while (parser.check(TokenType.COMMA)) {
+    parser.advance(); // consume ','
+    
+    // Parse next argument
+    const arg = parser.parseRule('non_binding_expression');
+    if (!arg) {
+      throw new Error('Expected argument expression after comma');
+    }
+    args.addChild(arg);
+  }
+  
+  // Expect closing parenthesis
+  if (!parser.check(TokenType.RPAREN)) {
+    throw new Error('Expected closing parenthesis after function arguments');
+  }
+  parser.advance(); // consume ')'
 
   const funcCall = new ParseNode(ParseNodeType.FunctionCall);
   funcCall.addChild(left);
