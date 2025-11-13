@@ -422,7 +422,7 @@ export class Interpreter {
   }
 
   // Get only user-defined bindings (exclude built-ins like console, Math)
-  private getUserDefinedBindings(): Map<string, RuntimeValue> {
+  getUserDefinedBindings(): Map<string, RuntimeValue> {
     const builtins = new Set(['console', 'Math']);
     const allBindings = this.environment.getAllBindings();
     const userBindings = new Map<string, RuntimeValue>();

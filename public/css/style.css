@@ -137,3 +137,57 @@ button:active {
 .repl-output-line.error {
   color: #f48771;
 }
+
+/* Environment display styles */
+.environment-display {
+  background-color: #2d2d30;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  border: 1px solid #3e3e42;
+  min-height: 100px;
+}
+
+.env-title {
+  font-weight: bold;
+  color: #569cd6;
+  margin-bottom: 0.5rem;
+  font-size: 1.1em;
+}
+
+.env-empty {
+  color: #808080;
+  font-style: italic;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.env-variables {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.env-variable {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #3e3e42;
+}
+
+.env-variable:last-child {
+  border-bottom: none;
+}
+
+.env-var-name {
+  color: #9cdcfe;
+  font-weight: 500;
+}
+
+.env-var-separator {
+  color: #d4d4d4;
+}
+
+.env-var-value {
+  color: #ce9178;
+}

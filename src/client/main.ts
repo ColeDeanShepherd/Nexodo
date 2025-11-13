@@ -58,13 +58,15 @@ class REPL {
   private auth = new Auth()
   private loginContainer!: HTMLElement
   private replContainer!: HTMLElement
+  private envDisplayElement!: HTMLElement
 
-  private constructor(container: HTMLElement) {
+  private constructor(container: HTMLElement, envDisplay: HTMLElement) {
+    this.envDisplayElement = envDisplay
     this.setupUI(container)
   }
 
-  static async create(container: HTMLElement): Promise<REPL> {
-    const repl = new REPL(container)
+  static async create(container: HTMLElement, envDisplay: HTMLElement): Promise<REPL> {
+    const repl = new REPL(container, envDisplay)
     await repl.initialize()
     return repl
   }
@@ -85,17 +87,51 @@ class REPL {
   private async showREPL() {
     this.loginContainer.style.display = 'none'
     this.replContainer.style.display = 'block'
-    this.addOutput('Welcome to Nexodo REPL! Complete compiler pipeline: Lexer → Parser → AST → Type Checker → Interpreter', 'info')
+    this.addOutput('Welcome to Nexodo REPL!', 'info')
     await this.loadEnvironment()
+    this.updateEnvironmentDisplay()
+  }
+
+  private updateEnvironmentDisplay() {
+    const userBindings = this.interpreter.getUserDefinedBindings()
+    
+    // Clear existing content
+    this.envDisplayElement.innerHTML = ''
+    
+    if (userBindings.size === 0) {
+      this.envDisplayElement.appendChild(_div({ class: 'env-empty' }, ['No variables defined']))
+      return
+    }
+    
+    // Create title
+    const title = _div({ class: 'env-title' }, ['Runtime Environment'])
+    this.envDisplayElement.appendChild(title)
+    
+    // Create variables list
+    const varsList = _div({ class: 'env-variables' })
+    
+    for (const [name, value] of userBindings) {
+      const valueStr = formatRuntimeValue(value)
+      const varItem = _div({ class: 'env-variable' }, [
+        _elem('span', { class: 'env-var-name' }, [name]),
+        _elem('span', { class: 'env-var-separator' }, [': ']),
+        _elem('span', { class: 'env-var-value' }, [valueStr])
+      ])
+      varsList.appendChild(varItem)
+    }
+    
+    this.envDisplayElement.appendChild(varsList)
   }
 
   private async loadEnvironment() {
     try {
       await this.interpreter.loadEnvironmentFromStorage(() => this.auth.getToken())
       this.addOutput('Loaded previous session variables from server', 'info')
+      this.updateEnvironmentDisplay()
     } catch (error) {
       console.warn('Failed to load environment:', error)
       this.addOutput('Failed to load previous session from server', 'error')
+      this.updateEnvironmentDisplay()
     }
   }
 
@@ -247,6 +283,7 @@ class REPL {
       // Save environment to storage after successful execution
       try {
         await this.interpreter.saveEnvironmentToStorage(() => this.auth.getToken());
+        this.updateEnvironmentDisplay(); // Update display after successful save
       } catch (saveError) {
         console.warn('Failed to save environment:', saveError);
         this.addOutput('Warning: Failed to save session to server', 'error');
@@ -283,14 +320,14 @@ async function run() {
 
   // Create main content area
   const heading = _h1(['Nexodo'])
-  const welcomeText = _div(['Full-stack TypeScript application with integrated REPL'])
-  const mainContent = _div({ class: 'main-content' }, [heading, welcomeText])
+  const envDisplay = _div({ class: 'environment-display' })
+  const mainContent = _div({ class: 'main-content' }, [heading, envDisplay])
   
   // Add main content to app
   appElem.appendChild(mainContent)
   
-  // Initialize REPL
-  await REPL.create(appElem)
+  // Initialize REPL with environment display
+  await REPL.create(appElem, envDisplay)
   
   // Focus on REPL input
   setTimeout(() => {
