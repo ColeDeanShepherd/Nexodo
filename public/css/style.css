@@ -30,7 +30,6 @@ body {
 }
 
 .repl-container {
-  height: 200px;
   background-color: #1e1e1e;
   border-top: 1px solid #3e3e42;
   display: flex;
@@ -38,7 +37,7 @@ body {
 }
 
 .repl-output {
-  flex: 1;
+  max-height: 200px;
   padding: 0.5rem;
   overflow-y: auto;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
