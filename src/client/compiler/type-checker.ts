@@ -14,6 +14,7 @@ import {
   MemberAccess,
   Program
 } from './ast';
+import { RuntimeEnvironment, RuntimeValue } from './interpreter';
 
 // Type system
 export abstract class Type {
@@ -177,6 +178,64 @@ export class TypeChecker {
 
   constructor(globalEnvironment?: Environment) {
     this.environment = globalEnvironment || this.createBuiltinEnvironment();
+  }
+
+  // Update type checker environment with runtime values from interpreter
+  updateEnvironment(runtimeEnv: RuntimeEnvironment): void {
+    const runtimeBindings = runtimeEnv.getAllBindings();
+    
+    // Recreate type environment with built-ins
+    this.environment = this.createBuiltinEnvironment();
+    
+    // Add runtime variables to type environment
+    for (const [name, value] of runtimeBindings) {
+      // Skip built-ins that are already in the type environment
+      if (name !== 'console' && name !== 'Math') {
+        const type = this.inferTypeFromRuntimeValue(value);
+        this.environment.define(name, type);
+      }
+    }
+  }
+
+  // Infer static type from runtime value
+  private inferTypeFromRuntimeValue(value: RuntimeValue): Type {
+    if (value === null || value === undefined) {
+      return NULL_TYPE;
+    }
+    
+    if (typeof value === 'number') {
+      return NUMBER_TYPE;
+    }
+    
+    if (typeof value === 'string') {
+      return STRING_TYPE;
+    }
+    
+    if (typeof value === 'boolean') {
+      return BOOLEAN_TYPE;
+    }
+    
+    if (typeof value === 'function') {
+      // For functions, we can't easily infer the exact signature from runtime
+      // so we'll use a generic unknown->unknown function type
+      return new FunctionType([UNKNOWN_TYPE], UNKNOWN_TYPE);
+    }
+    
+    if (Array.isArray(value)) {
+      // Infer array element type from first element, or unknown if empty
+      const elementType = value.length > 0 ? this.inferTypeFromRuntimeValue(value[0]) : UNKNOWN_TYPE;
+      return new ArrayType(elementType);
+    }
+    
+    if (typeof value === 'object') {
+      const properties = new Map<string, Type>();
+      for (const [key, val] of Object.entries(value)) {
+        properties.set(key, this.inferTypeFromRuntimeValue(val));
+      }
+      return new ObjectType(properties);
+    }
+    
+    return UNKNOWN_TYPE;
   }
 
   private createBuiltinEnvironment(): Environment {

@@ -3,6 +3,7 @@ import { Lexer } from './compiler/lexer'
 import { buildAST } from './compiler/ast'
 import { TypeChecker, formatTypeError, formatType } from './compiler/type-checker'
 import { Interpreter, formatRuntimeValue, formatRuntimeError } from './compiler/interpreter'
+import { EnvironmentService } from './environment-service'
 import { _elem, _h1, _div, _input, _button } from './ui-lib'
 
 class Auth {
@@ -56,6 +57,7 @@ class REPL {
   private typeChecker = new TypeChecker()
   private interpreter = new Interpreter()
   private auth = new Auth()
+  private envService = new EnvironmentService(() => this.auth.getToken())
   private loginContainer!: HTMLElement
   private replContainer!: HTMLElement
   private envDisplayElement!: HTMLElement
@@ -125,8 +127,13 @@ class REPL {
 
   private async loadEnvironment() {
     try {
-      await this.interpreter.loadEnvironmentFromStorage(() => this.auth.getToken())
-      this.addOutput('Loaded previous session variables from server', 'info')
+      const serializedEnv = await this.envService.loadEnvironment()
+      if (serializedEnv) {
+        this.interpreter.loadEnvironment(serializedEnv)
+        // Also update type checker with the loaded environment
+        this.typeChecker.updateEnvironment(this.interpreter.getEnvironment())
+        this.addOutput('Loaded previous session variables from server', 'info')
+      }
       this.updateEnvironmentDisplay()
     } catch (error) {
       console.warn('Failed to load environment:', error)
@@ -289,7 +296,10 @@ class REPL {
 
       // Save environment to storage after successful execution
       try {
-        await this.interpreter.saveEnvironmentToStorage(() => this.auth.getToken());
+        const serializedEnv = this.interpreter.saveEnvironment()
+        await this.envService.saveEnvironment(serializedEnv)
+        // Update type checker with current environment
+        this.typeChecker.updateEnvironment(this.interpreter.getEnvironment())
         this.updateEnvironmentDisplay(); // Update display after successful save
       } catch (saveError) {
         console.warn('Failed to save environment:', saveError);

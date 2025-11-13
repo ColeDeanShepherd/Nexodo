@@ -352,72 +352,19 @@ export class Interpreter {
     return [...this.output];
   }
 
-  // Save user-defined bindings to server API (excluding built-ins)
-  async saveEnvironmentToStorage(getToken?: () => string | null): Promise<void> {
+  // Save user-defined bindings to serializable format
+  saveEnvironment(): Record<string, any> {
     const userBindings = this.getUserDefinedBindings();
-    const serializedBindings = this.serializeBindings(userBindings);
-    
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (getToken) {
-        const token = getToken();
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-      }
-      
-      const response = await fetch('/api/db/value', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ value: JSON.stringify(serializedBindings) }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to save environment: ${response.status} ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Failed to save environment to server:', error);
-      throw error;
-    }
+    return this.serializeBindings(userBindings);
   }
 
-  // Load user-defined bindings from server API
-  async loadEnvironmentFromStorage(getToken?: () => string | null): Promise<void> {
-    try {
-      const headers: Record<string, string> = {};
-      
-      if (getToken) {
-        const token = getToken();
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-      }
-      
-      const response = await fetch('/api/db/value', { headers });
-      
-      if (response.status === 404) {
-        // No saved environment exists yet
-        return;
-      }
-      
-      if (!response.ok) {
-        throw new Error(`Failed to load environment: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      const serializedBindings = JSON.parse(data.value);
-      const deserializedBindings = this.deserializeBindings(serializedBindings);
-      
-      // Apply the loaded bindings to current environment
-      for (const [name, value] of deserializedBindings) {
-        this.environment.define(name, value);
-      }
-    } catch (error) {
-      console.warn('Failed to load environment from server:', error);
-      throw error;
+  // Load user-defined bindings from serialized format
+  loadEnvironment(serializedBindings: Record<string, any>): void {
+    const deserializedBindings = this.deserializeBindings(serializedBindings);
+    
+    // Apply the loaded bindings to current environment
+    for (const [name, value] of deserializedBindings) {
+      this.environment.define(name, value);
     }
   }
 
