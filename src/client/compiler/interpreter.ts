@@ -352,20 +352,45 @@ export class Interpreter {
     return [...this.output];
   }
 
-  // Save user-defined bindings to localStorage (excluding built-ins)
-  saveEnvironmentToStorage(): void {
+  // Save user-defined bindings to server API (excluding built-ins)
+  async saveEnvironmentToStorage(): Promise<void> {
     const userBindings = this.getUserDefinedBindings();
     const serializedBindings = this.serializeBindings(userBindings);
-    localStorage.setItem('nexodo-environment', JSON.stringify(serializedBindings));
+    
+    try {
+      const response = await fetch('/api/db/value', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ value: JSON.stringify(serializedBindings) }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save environment: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Failed to save environment to server:', error);
+      throw error;
+    }
   }
 
-  // Load user-defined bindings from localStorage
-  loadEnvironmentFromStorage(): void {
-    const stored = localStorage.getItem('nexodo-environment');
-    if (!stored) return;
-
+  // Load user-defined bindings from server API
+  async loadEnvironmentFromStorage(): Promise<void> {
     try {
-      const serializedBindings = JSON.parse(stored);
+      const response = await fetch('/api/db/value');
+      
+      if (response.status === 404) {
+        // No saved environment exists yet
+        return;
+      }
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load environment: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const serializedBindings = JSON.parse(data.value);
       const deserializedBindings = this.deserializeBindings(serializedBindings);
       
       // Apply the loaded bindings to current environment
@@ -373,7 +398,8 @@ export class Interpreter {
         this.environment.define(name, value);
       }
     } catch (error) {
-      console.warn('Failed to load environment from storage:', error);
+      console.warn('Failed to load environment from server:', error);
+      throw error;
     }
   }
 

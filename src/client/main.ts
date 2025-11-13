@@ -13,17 +13,23 @@ class REPL {
   private typeChecker = new TypeChecker()
   private interpreter = new Interpreter()
 
-  constructor(container: HTMLElement) {
+  private constructor(container: HTMLElement) {
     this.setupREPL(container)
-    this.loadEnvironment()
   }
 
-  private loadEnvironment() {
+  static async create(container: HTMLElement): Promise<REPL> {
+    const repl = new REPL(container)
+    await repl.loadEnvironment()
+    return repl
+  }
+
+  private async loadEnvironment() {
     try {
-      this.interpreter.loadEnvironmentFromStorage()
-      this.addOutput('Loaded previous session variables from storage', 'info')
+      await this.interpreter.loadEnvironmentFromStorage()
+      this.addOutput('Loaded previous session variables from server', 'info')
     } catch (error) {
       console.warn('Failed to load environment:', error)
+      this.addOutput('Failed to load previous session from server', 'error')
     }
   }
 
@@ -49,11 +55,11 @@ class REPL {
   }
 
   private setupEventListeners() {
-    this.inputElement.addEventListener('keydown', (e) => {
+    this.inputElement.addEventListener('keydown', async (e) => {
       if (e.key === 'Enter') {
         const input = this.inputElement.value.trim()
         if (input) {
-          this.executeCommand(input)
+          await this.executeCommand(input)
           this.inputElement.value = ''
         }
       } else if (e.key === 'ArrowUp') {
@@ -66,7 +72,7 @@ class REPL {
     })
   }
 
-  private executeCommand(input: string) {
+  private async executeCommand(input: string) {
     this.history.push(input)
     this.historyIndex = this.history.length
     this.addOutput(`> ${input}`, 'input')
@@ -107,7 +113,12 @@ class REPL {
       }
 
       // Save environment to storage after successful execution
-      this.interpreter.saveEnvironmentToStorage();
+      try {
+        await this.interpreter.saveEnvironmentToStorage();
+      } catch (saveError) {
+        console.warn('Failed to save environment:', saveError);
+        this.addOutput('Warning: Failed to save session to server', 'error');
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       this.addOutput(`Error: ${errorMessage}`, 'error')
@@ -132,7 +143,7 @@ class REPL {
   }
 }
 
-function run() {
+async function run() {
   const appElem = document.getElementById('app')
   if (!appElem) {
     throw new Error('App root element not found')
@@ -147,7 +158,7 @@ function run() {
   appElem.appendChild(mainContent)
   
   // Initialize REPL
-  new REPL(appElem)
+  await REPL.create(appElem)
   
   // Focus on REPL input
   setTimeout(() => {

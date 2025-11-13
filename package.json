@@ -10,7 +10,9 @@
     "test": "bun test src/client/*.test.ts"
   },
   "dependencies": {
-    "hono": "^4.10.4"
+    "@types/pg": "^8.15.6",
+    "hono": "^4.10.4",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@types/bun": "latest",
