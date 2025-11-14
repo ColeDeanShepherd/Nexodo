@@ -3,6 +3,8 @@ import { html, raw } from 'hono/html'
 import { serveStatic } from 'hono/bun'
 import { Pool } from 'pg'
 import * as jwt from 'jsonwebtoken'
+import { BackupService } from './backup-service'
+import { SchedulerService } from './scheduler-service'
 
 if (process.env.NODE_ENV !== 'production') {
   console.log(process.env.APP_PASSWORD)
@@ -42,6 +44,10 @@ const pool = new Pool({
   database: process.env.DATABASE_URL ? undefined : process.env.PGDATABASE,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 })
+
+// Initialize backup services
+const backupService = new BackupService(pool)
+const schedulerService = new SchedulerService(backupService)
 
 // Serve static files from public directory
 app.use('/public/*', serveStatic({ root: './' }))
@@ -129,6 +135,27 @@ app.post('/api/db/value', authenticateJWT, async (c) => {
   }
 })
 
+// Backup endpoints (protected)
+app.post('/api/backup/trigger', authenticateJWT, async (c) => {
+  try {
+    const result = await schedulerService.triggerTestBackup()
+    return c.json(result)
+  } catch (error) {
+    console.error('Manual backup error:', error)
+    return c.json({ error: 'Backup failed' }, 500)
+  }
+})
+
+app.get('/api/backup/status', authenticateJWT, async (c) => {
+  try {
+    const status = schedulerService.getSchedulerStatus()
+    return c.json(status)
+  } catch (error) {
+    console.error('Backup status error:', error)
+    return c.json({ error: 'Failed to get backup status' }, 500)
+  }
+})
+
 app.get(
   '/',
   (c) =>
@@ -148,6 +175,9 @@ app.get(
       </html>
     `)
 )
+
+// Start the backup scheduler
+schedulerService.startScheduler()
 
 const port = process.env.PORT || 3000
 console.log(`Server is running on port ${port}`)
