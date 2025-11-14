@@ -89,6 +89,19 @@ export class RuntimeEnvironment {
     this.bindings.set(name, value);
   }
 
+  delete(name: string): boolean {
+    if (this.bindings.has(name)) {
+      this.bindings.delete(name);
+      return true;
+    }
+    
+    if (this.parent) {
+      return this.parent.delete(name);
+    }
+    
+    return false;
+  }
+
   createChild(): RuntimeEnvironment {
     return new RuntimeEnvironment(this);
   }
@@ -148,6 +161,9 @@ export class Interpreter {
     
     env.define('console', consoleObj);
     env.define('Math', mathObj);
+    
+    // Built-in delete function (special - argument not evaluated)
+    env.define('delete', '__DELETE_BUILTIN__' as any);
     
     return env;
   }
@@ -291,6 +307,11 @@ export class Interpreter {
   }
 
   private evaluateFunctionCall(node: FunctionCall): RuntimeValue {
+    // Special handling for delete function - don't evaluate the argument
+    if (node.callee.nodeType === 'Identifier' && (node.callee as Identifier).name === 'delete') {
+      return this.handleDelete(node);
+    }
+    
     const callee = this.evaluateNode(node.callee);
     
     if (typeof callee !== 'function') {
@@ -305,6 +326,70 @@ export class Interpreter {
       const message = error instanceof Error ? error.message : String(error);
       throw new RuntimeError(`Function call error: ${message}`, node);
     }
+  }
+
+  private handleDelete(node: FunctionCall): RuntimeValue {
+    if (node.args.length !== 1) {
+      throw new RuntimeError('delete expects exactly 1 argument', node);
+    }
+    
+    const target = node.args[0];
+    
+    // Handle delete(identifier) - delete variable from environment
+    if (target.nodeType === 'Identifier') {
+      const identifier = target as Identifier;
+      const deleted = this.environment.delete(identifier.name);
+      if (!deleted) {
+        throw new RuntimeError(`Variable '${identifier.name}' not found`, target);
+      }
+      return null;
+    }
+    
+    // Handle delete(obj.property) - delete object property
+    if (target.nodeType === 'MemberAccess') {
+      const member = target as MemberAccess;
+      const object = this.evaluateNode(member.object);
+      
+      if (object === null || object === undefined) {
+        throw new RuntimeError('Cannot delete property of null or undefined', target);
+      }
+      
+      if (typeof object !== 'object') {
+        throw new RuntimeError('Cannot delete property of non-object value', target);
+      }
+      
+      const propertyName = member.property.name;
+      delete (object as any)[propertyName];
+      return null;
+    }
+    
+    // Handle delete(arr[index]) - delete array element
+    if (target.nodeType === 'ArrayAccess') {
+      const arrayAccess = target as ArrayAccess;
+      const object = this.evaluateNode(arrayAccess.object);
+      const index = this.evaluateNode(arrayAccess.index);
+      
+      if (!Array.isArray(object)) {
+        throw new RuntimeError('Cannot delete index from non-array value', target);
+      }
+      
+      if (typeof index !== 'number') {
+        throw new RuntimeError('Array index must be a number', target);
+      }
+      
+      const array = object as RuntimeArray;
+      const actualIndex = index < 0 ? array.length + index : index;
+      
+      if (actualIndex < 0 || actualIndex >= array.length) {
+        throw new RuntimeError(`Array index ${index} out of bounds for array of length ${array.length}`, target);
+      }
+      
+      // Use splice to remove the element
+      array.splice(actualIndex, 1);
+      return null;
+    }
+    
+    throw new RuntimeError('delete expects an identifier, object property, or array element', target);
   }
 
   private evaluateMemberAccess(node: MemberAccess, allowUndefined: boolean = false): RuntimeValue {

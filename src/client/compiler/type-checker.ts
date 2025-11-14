@@ -271,6 +271,9 @@ export class TypeChecker {
       ['PI', NUMBER_TYPE]
     ])));
     
+    // Built-in delete function (special - accepts any reference type)
+    env.define('delete', new FunctionType([UNKNOWN_TYPE], NULL_TYPE));
+    
     return env;
   }
 
@@ -408,6 +411,11 @@ export class TypeChecker {
   }
 
   private checkFunctionCall(node: FunctionCall): Type {
+    // Special handling for delete function - validate the reference type
+    if (node.callee.nodeType === 'Identifier' && (node.callee as Identifier).name === 'delete') {
+      return this.checkDelete(node);
+    }
+    
     const calleeType = this.checkNode(node.callee);
     
     if (!(calleeType instanceof FunctionType)) {
@@ -438,6 +446,55 @@ export class TypeChecker {
     }
     
     return calleeType.returnType;
+  }
+
+  private checkDelete(node: FunctionCall): Type {
+    if (node.args.length !== 1) {
+      this.error('delete expects exactly 1 argument', node as any);
+      return NULL_TYPE;
+    }
+    
+    const target = node.args[0];
+    
+    // Validate that the argument is a deletable reference
+    if (target.nodeType === 'Identifier') {
+      // Check if variable exists
+      const type = this.environment.lookup((target as Identifier).name);
+      if (!type) {
+        this.error(`Variable '${(target as Identifier).name}' not found`, target as any);
+      }
+      return NULL_TYPE;
+    }
+    
+    if (target.nodeType === 'MemberAccess') {
+      // Just check that the object exists and is an object type
+      const member = target as MemberAccess;
+      const objectType = this.checkNode(member.object);
+      if (!(objectType instanceof ObjectType)) {
+        this.error('Cannot delete property from non-object type', target as any);
+      }
+      return NULL_TYPE;
+    }
+    
+    if (target.nodeType === 'ArrayAccess') {
+      // Check that it's an array and index is a number
+      const arrayAccess = target as ArrayAccess;
+      const objectType = this.checkNode(arrayAccess.object);
+      const indexType = this.checkNode(arrayAccess.index);
+      
+      if (!(objectType instanceof ArrayType)) {
+        this.error('Cannot delete from non-array type', target as any);
+      }
+      
+      if (!indexType.equals(NUMBER_TYPE)) {
+        this.error('Array index must be a number', target as any);
+      }
+      
+      return NULL_TYPE;
+    }
+    
+    this.error('delete expects an identifier, object property, or array element', target as any);
+    return NULL_TYPE;
   }
 
   private checkMemberAccess(node: MemberAccess): Type {
