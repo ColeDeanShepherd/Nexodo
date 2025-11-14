@@ -1,8 +1,7 @@
 # To-Do
 
-* Backups
-* Object literals with properties (ex: `{front: "a"}`)
-
+* Refactoring
+* Backups in folder
 * Show built-ins
 * Autocomplete/suggestion
 * Quoting strings

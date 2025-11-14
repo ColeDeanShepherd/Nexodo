@@ -292,16 +292,38 @@ export class ASTBuilder {
   private buildObjectLiteral(node: ParseNode): ObjectLiteral {
     const properties: ObjectProperty[] = [];
     
+    // Look for object_property_list or direct properties
+    for (const child of node.children) {
+      if (child.type === ParseNodeType.Property) {
+        // Direct property
+        const prop = this.build(child);
+        if (prop instanceof ObjectProperty) {
+          properties.push(prop);
+        }
+      } else if (child.type === ParseNodeType.Token || child.children.length > 0) {
+        // This might be the object_property_list container
+        this.collectProperties(child, properties);
+      }
+    }
+    
+    return new ObjectLiteral(properties);
+  }
+
+  private collectProperties(node: ParseNode, properties: ObjectProperty[]): void {
     for (const child of node.children) {
       if (child.type === ParseNodeType.Property) {
         const prop = this.build(child);
         if (prop instanceof ObjectProperty) {
           properties.push(prop);
         }
+      } else if (child.type === ParseNodeType.Token && child.children.length > 0) {
+        // Recursively check nested token containers
+        this.collectProperties(child, properties);
+      } else if (child.children) {
+        // Check any other nodes with children
+        this.collectProperties(child, properties);
       }
     }
-    
-    return new ObjectLiteral(properties);
   }
 
   private buildObjectProperty(node: ParseNode): ObjectProperty {
@@ -340,16 +362,38 @@ export class ASTBuilder {
   private buildArrayLiteral(node: ParseNode): ArrayLiteral {
     const elements: Expression[] = [];
     
+    // Look for array_element_list or direct elements
     for (const child of node.children) {
-      if (child.type !== ParseNodeType.Token) {
-        const element = this.build(child);
-        if (element instanceof Expression) {
-          elements.push(element);
+      if (child.type !== ParseNodeType.Token || (child.token?.type !== 'LBRACKET' as any && child.token?.type !== 'RBRACKET' as any)) {
+        if (child.children) {
+          // This might be the array_element_list container
+          this.collectElements(child, elements);
+        } else {
+          const element = this.build(child);
+          if (element instanceof Expression) {
+            elements.push(element);
+          }
         }
       }
     }
     
     return new ArrayLiteral(elements);
+  }
+
+  private collectElements(node: ParseNode, elements: Expression[]): void {
+    for (const child of node.children) {
+      if (child.type !== ParseNodeType.Token || child.token?.type !== 'COMMA' as any) {
+        if (child.children && child.children.length > 0) {
+          // Recursively check nested containers
+          this.collectElements(child, elements);
+        } else {
+          const element = this.build(child);
+          if (element instanceof Expression) {
+            elements.push(element);
+          }
+        }
+      }
+    }
   }
 
   private buildMemberAccess(node: ParseNode): MemberAccess {

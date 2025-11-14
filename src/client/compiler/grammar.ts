@@ -148,8 +148,24 @@ export function createReplGrammar(): Record<string, GrammarRule> {
   grammar['object'] = new Sequence(
     ParseNodeType.Object,
     new Terminal(TokenType.LBRACE),
-    new ZeroOrMore(new NonTerminal('object_property'), ParseNodeType.Token),
+    new Optional(new NonTerminal('object_property_list')),
     new Terminal(TokenType.RBRACE)
+  );
+
+  // Object property list: property or property, property, ...
+  grammar['object_property_list'] = new Choice(
+    new NonTerminal('object_property'),
+    new Sequence(
+      ParseNodeType.Token,
+      new NonTerminal('object_property'),
+      new OneOrMore(
+        new Sequence(
+          ParseNodeType.Token,
+          new Terminal(TokenType.COMMA),
+          new NonTerminal('object_property')
+        )
+      )
+    )
   );
 
   // Object property: key: value
@@ -163,12 +179,28 @@ export function createReplGrammar(): Record<string, GrammarRule> {
     new NonTerminal('non_binding_expression')
   );
 
-  // Array literal: [value, ...]
+  // Array literal: [value, ...]  
   grammar['array'] = new Sequence(
     ParseNodeType.Array,
     new Terminal(TokenType.LBRACKET),
-    new ZeroOrMore(new NonTerminal('non_binding_expression'), ParseNodeType.Token),
+    new Optional(new NonTerminal('array_element_list')),
     new Terminal(TokenType.RBRACKET)
+  );
+
+  // Array element list: element or element, element, ...
+  grammar['array_element_list'] = new Choice(
+    new NonTerminal('non_binding_expression'),
+    new Sequence(
+      ParseNodeType.Token,
+      new NonTerminal('non_binding_expression'),
+      new OneOrMore(
+        new Sequence(
+          ParseNodeType.Token,
+          new Terminal(TokenType.COMMA),
+          new NonTerminal('non_binding_expression')
+        )
+      )
+    )
   );
 
   return grammar;
