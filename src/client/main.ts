@@ -317,7 +317,6 @@ class REPL {
     const menuDropdown = _div({ class: 'menu-dropdown', style: 'display: none;' }, [
       _button({ class: 'menu-item' }, ['🔄 Backup Now']),
       _button({ class: 'menu-item' }, ['📊 Backup Status']),
-      _button({ class: 'menu-item' }, ['⚙️ Configure Google Drive']),
       _button({ class: 'menu-item' }, ['📋 Set Backup Folder']),
       _button({ class: 'menu-item' }, ['🔗 Authorize Google Drive']),
       _button({ class: 'menu-item' }, ['🚪 Logout'])
@@ -389,29 +388,22 @@ class REPL {
       await this.handleBackupStatus()
     })
     
-    // Configure Google Drive
-    menuItems[2].addEventListener('click', async () => {
-      menuDropdown.style.display = 'none'
-      isMenuOpen = false
-      await this.handleGoogleDriveConfig()
-    })
-    
     // Set Backup Folder
-    menuItems[3].addEventListener('click', async () => {
+    menuItems[2].addEventListener('click', async () => {
       menuDropdown.style.display = 'none'
       isMenuOpen = false
       await this.handleBackupFolderConfig()
     })
     
     // Authorize Google Drive
-    menuItems[4].addEventListener('click', async () => {
+    menuItems[3].addEventListener('click', async () => {
       menuDropdown.style.display = 'none'
       isMenuOpen = false
       await this.handleGoogleDriveSetup()
     })
     
     // Logout
-    menuItems[5].addEventListener('click', () => {
+    menuItems[4].addEventListener('click', () => {
       menuDropdown.style.display = 'none'
       isMenuOpen = false
       this.auth.logout()
@@ -442,31 +434,7 @@ class REPL {
     }
   }
 
-  private async handleGoogleDriveConfig() {
-    this.addOutput('⚙️ Configuring Google Drive Client ID...', 'info')
-    
-    const currentClientId = localStorage.getItem('google_client_id')
-    if (currentClientId) {
-      this.addOutput(`📋 Current Client ID: ${currentClientId.slice(0, 20)}...`, 'info')
-    }
-    
-    const clientId = prompt('Enter your Google OAuth2 Client ID:', currentClientId || '')
-    
-    if (!clientId || !clientId.trim()) {
-      this.addOutput('❌ No Client ID provided', 'error')
-      return
-    }
-    
-    // Basic validation
-    if (!clientId.includes('.apps.googleusercontent.com')) {
-      this.addOutput('⚠️ Client ID should end with .apps.googleusercontent.com', 'error')
-      return
-    }
-    
-    localStorage.setItem('google_client_id', clientId.trim())
-    this.addOutput('✅ Google Client ID saved!', 'info')
-    this.addOutput('💡 Now use "🔗 Authorize Google Drive" to complete setup', 'info')
-  }
+
 
   private async handleBackupFolderConfig() {
     this.addOutput('📋 Configuring backup folder...', 'info')
@@ -503,11 +471,8 @@ class REPL {
   }
 
   private async handleGoogleDriveSetup() {
-    const clientId = localStorage.getItem('google_client_id')
-    if (!clientId) {
-      this.addOutput('❌ No Google Client ID configured. Use "⚙️ Configure Google Drive" first.', 'error')
-      return
-    }
+    // Hardcoded client ID for the Nexodo app
+    const clientId = '491462303134-7mpv6vqs3s1ls3rrupgelhtobnlcj48o.apps.googleusercontent.com'
     
     this.addOutput('🔗 Setting up Google Drive authorization...', 'info')
     
@@ -521,11 +486,11 @@ class REPL {
     this.addOutput('🔑 Starting Google OAuth flow...', 'info')
     
     try {
-      // Initialize Google OAuth with stored client ID
+      // Initialize Google OAuth with hardcoded client ID
       await this.initializeGoogleOAuth(clientId)
     } catch (error) {
-      this.addOutput('❌ Failed to initialize Google OAuth. Check your Client ID and make sure your domain is authorized.', 'error')
-      this.addOutput('💡 Verify your OAuth2 credentials in Google Cloud Console.', 'info')
+      this.addOutput('❌ Failed to initialize Google OAuth. Make sure your domain is authorized in Google Cloud Console.', 'error')
+      this.addOutput('💡 Contact the app administrator if this continues to fail.', 'info')
     }
   }
 

@@ -32,30 +32,31 @@ This new approach handles everything in the web interface - no environment varia
 
 1. Start your server: `bun run dev`
 2. Login to your REPL
-3. Click the menu (☰) > "⚙️ Configure Google Drive"
-4. Enter your Client ID from step 3
-5. (Optional) Click the menu (☰) > "📁 Set Backup Folder"
-6. (Optional) Enter a Google Drive folder ID, or leave empty for root
-7. Click the menu (☰) > "🔗 Authorize Google Drive"  
-8. Click "Allow" in the Google popup
-9. Done! Backups are now configured
+3. (Optional) Click the menu (☰) > "📁 Set Backup Folder"
+4. (Optional) Enter a Google Drive folder ID, or leave empty for root
+5. Click the menu (☰) > "🔗 Authorize Google Drive"  
+6. Click "Allow" in the Google popup
+7. Done! Backups are now configured
+
+**Note**: The Google Client ID is now hardcoded in the application, so you don't need to configure it manually.
 
 ## Benefits of Client-Side OAuth
 
 ✅ **Zero server config** - No environment variables needed
-✅ **UI-based setup** - Configure everything through the web interface  
+✅ **Hardcoded client ID** - No manual configuration needed  
 ✅ **Secure** - Tokens are handled by Google's secure flow
 ✅ **No secrets** - No client secrets to manage on the server
 ✅ **Personal Drive** - Uses your own Google Drive storage
-✅ **Persistent config** - Client ID and folder ID saved in browser localStorage
+✅ **Simple setup** - Just authorize and optionally set backup folder
 ✅ **Flexible folders** - Choose specific folder or use Drive root
 
 ## How It Works
 
-1. **Client-side OAuth** - Browser handles Google authentication
-2. **Token caching** - Server stores tokens in memory for backups
-3. **Automatic backups** - Scheduled backups use cached tokens
-4. **No persistence** - Tokens are temporary (re-auth if server restarts)
+1. **Hardcoded client ID** - App-specific client ID is built into the application
+2. **Client-side OAuth** - Browser handles Google authentication
+3. **Token caching** - Server stores tokens in memory for backups
+4. **Automatic backups** - Scheduled backups use cached tokens
+5. **No persistence** - Tokens are temporary (re-auth if server restarts)
 
 ## Troubleshooting
 
