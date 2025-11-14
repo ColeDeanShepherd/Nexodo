@@ -47,6 +47,43 @@ class Auth {
   isAuthenticated(): boolean {
     return !!this.getToken()
   }
+
+  async triggerBackup(): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await fetch('/api/backup/trigger', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('Backup error:', error)
+      return { success: false, message: 'Network error' }
+    }
+  }
+
+  async getBackupStatus(): Promise<any> {
+    try {
+      const response = await fetch('/api/backup/status', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+        },
+      })
+
+      if (response.ok) {
+        return await response.json()
+      }
+      return null
+    } catch (error) {
+      console.error('Backup status error:', error)
+      return null
+    }
+  }
 }
 
 class REPL {
@@ -210,16 +247,19 @@ class REPL {
     
     const inputContainer = _div({ class: 'repl-input-container' }, [prompt, this.inputElement])
     
-    // Add logout button
-    const logoutButton = _button({ class: 'logout-button' }, ['Logout'])
-    logoutButton.addEventListener('click', () => {
-      this.auth.logout()
-      this.showLogin()
-    })
+    // Add app menu
+    const menuButton = _button({ class: 'menu-button' }, ['☰'])
+    const menuDropdown = _div({ class: 'menu-dropdown', style: 'display: none;' }, [
+      _button({ class: 'menu-item' }, ['🔄 Backup Now']),
+      _button({ class: 'menu-item' }, ['📊 Backup Status']),
+      _button({ class: 'menu-item' }, ['🚪 Logout'])
+    ])
+    
+    this.setupMenuHandlers(menuButton, menuDropdown)
     
     const replHeader = _div({ class: 'repl-header' }, [
       _elem('span', {}, ['Nexodo REPL']),
-      logoutButton
+      _div({ class: 'menu-container' }, [menuButton, menuDropdown])
     ])
     
     this.replContainer = _div({ class: 'repl-container' }, [replHeader, this.outputElement, inputContainer])
@@ -245,6 +285,72 @@ class REPL {
         this.navigateHistory(1)
       }
     })
+  }
+
+  private setupMenuHandlers(menuButton: HTMLElement, menuDropdown: HTMLElement) {
+    let isMenuOpen = false
+    
+    menuButton.addEventListener('click', (e) => {
+      e.stopPropagation()
+      isMenuOpen = !isMenuOpen
+      menuDropdown.style.display = isMenuOpen ? 'block' : 'none'
+    })
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', () => {
+      if (isMenuOpen) {
+        isMenuOpen = false
+        menuDropdown.style.display = 'none'
+      }
+    })
+    
+    // Menu item handlers
+    const menuItems = menuDropdown.querySelectorAll('.menu-item')
+    
+    // Backup Now
+    menuItems[0].addEventListener('click', async () => {
+      menuDropdown.style.display = 'none'
+      isMenuOpen = false
+      await this.handleBackupTrigger()
+    })
+    
+    // Backup Status
+    menuItems[1].addEventListener('click', async () => {
+      menuDropdown.style.display = 'none'
+      isMenuOpen = false
+      await this.handleBackupStatus()
+    })
+    
+    // Logout
+    menuItems[2].addEventListener('click', () => {
+      menuDropdown.style.display = 'none'
+      isMenuOpen = false
+      this.auth.logout()
+      this.showLogin()
+    })
+  }
+
+  private async handleBackupTrigger() {
+    this.addOutput('🔄 Triggering backup...', 'info')
+    const result = await this.auth.triggerBackup()
+    
+    if (result.success) {
+      this.addOutput(`✅ ${result.message}`, 'info')
+    } else {
+      this.addOutput(`❌ ${result.message}`, 'error')
+    }
+  }
+
+  private async handleBackupStatus() {
+    this.addOutput('📊 Checking backup status...', 'info')
+    const status = await this.auth.getBackupStatus()
+    
+    if (status) {
+      const statusMsg = `Scheduler: ${status.running ? '✅ Running' : '❌ Stopped'} | Next: ${status.nextRun || 'N/A'} | Timezone: ${status.timezone}`
+      this.addOutput(statusMsg, 'info')
+    } else {
+      this.addOutput('❌ Failed to get backup status', 'error')
+    }
   }
 
   private async executeCommand(input: string) {
