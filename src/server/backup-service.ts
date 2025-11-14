@@ -64,10 +64,16 @@ export class BackupService {
       // Create file name with timestamp
       const fileName = `nexodo-backup-${timestamp.split('T')[0]}.json`;
 
+      // Check if folder ID is provided (required for service accounts)
+      const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+      if (!folderId) {
+        throw new Error('GOOGLE_DRIVE_FOLDER_ID is required for service account backups. Please create a shared folder and share it with your service account.');
+      }
+
       // Upload to Google Drive
       const fileMetadata = {
         name: fileName,
-        parents: process.env.GOOGLE_DRIVE_FOLDER_ID ? [process.env.GOOGLE_DRIVE_FOLDER_ID] : undefined
+        parents: [folderId]
       };
 
       const media = {

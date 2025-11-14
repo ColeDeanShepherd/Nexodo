@@ -38,13 +38,16 @@ This guide explains how to set up automated Google Drive backups for your Nexodo
 5. Choose "JSON" format and click "Create"
 6. The JSON file will download automatically - keep it secure!
 
-## Step 5: Set Up Google Drive Folder (Optional)
+## Step 5: Set Up Google Drive Folder (REQUIRED)
+
+**Important**: Service accounts don't have personal Google Drive storage, so you MUST create a shared folder.
 
 1. In Google Drive, create a folder for your backups (e.g., "Nexodo Backups")
 2. Right-click the folder and choose "Share"
 3. Share the folder with your service account email (from step 3)
 4. Give it "Editor" permissions
 5. Copy the folder ID from the URL (the part after `/folders/`)
+6. **This folder ID is required** - the backup will fail without it
 
 ## Step 6: Configure Environment Variables
 
@@ -54,7 +57,7 @@ Add these variables to your `.env` file:
 # Required: Service account JSON key (entire JSON as one line)
 GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"your-project-id",...}
 
-# Optional: Specific folder ID (if you created a dedicated folder)
+# Required: Specific folder ID (service accounts need a shared folder)
 GOOGLE_DRIVE_FOLDER_ID=your_folder_id_here
 
 # Optional: Timezone for backup schedule (default: UTC)
@@ -112,8 +115,10 @@ Authorization: Bearer your_jwt_token
 
 1. **"Google Drive backup disabled"** - Check that `GOOGLE_SERVICE_ACCOUNT_KEY` is set correctly
 2. **"Invalid credentials"** - Verify the service account JSON is properly formatted
-3. **"Insufficient permissions"** - Make sure the service account has access to the Google Drive folder
-4. **"API not enabled"** - Ensure Google Drive API is enabled in your Google Cloud project
+3. **"Service Accounts do not have storage quota"** - You MUST set `GOOGLE_DRIVE_FOLDER_ID` to a folder that has been shared with your service account
+4. **"GOOGLE_DRIVE_FOLDER_ID is required"** - Create a folder in Google Drive, share it with your service account, and set the folder ID
+5. **"Insufficient permissions"** - Make sure the service account has "Editor" access to the shared folder
+6. **"API not enabled"** - Ensure Google Drive API is enabled in your Google Cloud project
 
 ### Testing
 
