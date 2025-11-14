@@ -5,6 +5,7 @@ import { TypeChecker, formatTypeError, formatType } from './compiler/type-checke
 import { Interpreter, formatRuntimeValue, formatRuntimeError } from './compiler/interpreter'
 import { EnvironmentService } from './environment-service'
 import { _elem, _h1, _div, _input, _button } from './ui-lib'
+import './google-types'
 
 class Auth {
   private token: string | null = null
@@ -81,6 +82,52 @@ class Auth {
       return null
     } catch (error) {
       console.error('Backup status error:', error)
+      return null
+    }
+  }
+
+  async sendGoogleTokens(tokens: any): Promise<{ success: boolean; message: string }> {
+    try {
+      // Get folder ID from localStorage if set
+      const folderId = localStorage.getItem('google_drive_folder_id')
+      
+      const response = await fetch('/api/auth/google/tokens', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: tokens.expires_at,
+          folder_id: folderId || undefined
+        })
+      })
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('Google tokens error:', error)
+      return { success: false, message: 'Network error' }
+    }
+  }
+
+  async getGoogleAuthStatus(): Promise<any> {
+    try {
+      const response = await fetch('/api/auth/google/status', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+        },
+      })
+
+      if (response.ok) {
+        return await response.json()
+      }
+      return null
+    } catch (error) {
+      console.error('Google auth status error:', error)
       return null
     }
   }
@@ -252,6 +299,9 @@ class REPL {
     const menuDropdown = _div({ class: 'menu-dropdown', style: 'display: none;' }, [
       _button({ class: 'menu-item' }, ['🔄 Backup Now']),
       _button({ class: 'menu-item' }, ['📊 Backup Status']),
+      _button({ class: 'menu-item' }, ['⚙️ Configure Google Drive']),
+      _button({ class: 'menu-item' }, ['📋 Set Backup Folder']),
+      _button({ class: 'menu-item' }, ['🔗 Authorize Google Drive']),
       _button({ class: 'menu-item' }, ['🚪 Logout'])
     ])
     
@@ -321,8 +371,29 @@ class REPL {
       await this.handleBackupStatus()
     })
     
+    // Configure Google Drive
+    menuItems[2].addEventListener('click', async () => {
+      menuDropdown.style.display = 'none'
+      isMenuOpen = false
+      await this.handleGoogleDriveConfig()
+    })
+    
+    // Set Backup Folder
+    menuItems[3].addEventListener('click', async () => {
+      menuDropdown.style.display = 'none'
+      isMenuOpen = false
+      await this.handleBackupFolderConfig()
+    })
+    
+    // Authorize Google Drive
+    menuItems[4].addEventListener('click', async () => {
+      menuDropdown.style.display = 'none'
+      isMenuOpen = false
+      await this.handleGoogleDriveSetup()
+    })
+    
     // Logout
-    menuItems[2].addEventListener('click', () => {
+    menuItems[5].addEventListener('click', () => {
       menuDropdown.style.display = 'none'
       isMenuOpen = false
       this.auth.logout()
@@ -351,6 +422,132 @@ class REPL {
     } else {
       this.addOutput('❌ Failed to get backup status', 'error')
     }
+  }
+
+  private async handleGoogleDriveConfig() {
+    this.addOutput('⚙️ Configuring Google Drive Client ID...', 'info')
+    
+    const currentClientId = localStorage.getItem('google_client_id')
+    if (currentClientId) {
+      this.addOutput(`📋 Current Client ID: ${currentClientId.slice(0, 20)}...`, 'info')
+    }
+    
+    const clientId = prompt('Enter your Google OAuth2 Client ID:', currentClientId || '')
+    
+    if (!clientId || !clientId.trim()) {
+      this.addOutput('❌ No Client ID provided', 'error')
+      return
+    }
+    
+    // Basic validation
+    if (!clientId.includes('.apps.googleusercontent.com')) {
+      this.addOutput('⚠️ Client ID should end with .apps.googleusercontent.com', 'error')
+      return
+    }
+    
+    localStorage.setItem('google_client_id', clientId.trim())
+    this.addOutput('✅ Google Client ID saved!', 'info')
+    this.addOutput('💡 Now use "🔗 Authorize Google Drive" to complete setup', 'info')
+  }
+
+  private async handleBackupFolderConfig() {
+    this.addOutput('📋 Configuring backup folder...', 'info')
+    
+    const currentFolderId = localStorage.getItem('google_drive_folder_id')
+    if (currentFolderId) {
+      this.addOutput(`📋 Current Folder ID: ${currentFolderId}`, 'info')
+    } else {
+      this.addOutput('📋 No folder configured - backups will go to Drive root', 'info')
+    }
+    
+    this.addOutput('💡 To get a folder ID: Open Google Drive, go to your folder, copy the ID from the URL after /folders/', 'info')
+    
+    const folderId = prompt('Enter Google Drive Folder ID (leave empty for root folder):', currentFolderId || '')
+    
+    if (folderId === null) {
+      this.addOutput('❌ Folder configuration cancelled', 'error')
+      return
+    }
+    
+    if (folderId.trim() === '') {
+      localStorage.removeItem('google_drive_folder_id')
+      this.addOutput('✅ Backup folder cleared - will use Drive root', 'info')
+    } else {
+      // Basic validation - Google Drive folder IDs are typically long alphanumeric strings
+      if (folderId.length < 10 || !/^[a-zA-Z0-9_-]+$/.test(folderId)) {
+        this.addOutput('⚠️ Invalid folder ID format. Should be a long alphanumeric string from the Drive URL.', 'error')
+        return
+      }
+      
+      localStorage.setItem('google_drive_folder_id', folderId.trim())
+      this.addOutput(`✅ Backup folder set to: ${folderId.trim()}`, 'info')
+    }
+  }
+
+  private async handleGoogleDriveSetup() {
+    const clientId = localStorage.getItem('google_client_id')
+    if (!clientId) {
+      this.addOutput('❌ No Google Client ID configured. Use "⚙️ Configure Google Drive" first.', 'error')
+      return
+    }
+    
+    this.addOutput('🔗 Setting up Google Drive authorization...', 'info')
+    
+    // Check current status first
+    const status = await this.auth.getGoogleAuthStatus()
+    if (status?.configured) {
+      this.addOutput('✅ Google Drive is already configured!', 'info')
+      return
+    }
+
+    this.addOutput('🔑 Starting Google OAuth flow...', 'info')
+    
+    try {
+      // Initialize Google OAuth with stored client ID
+      await this.initializeGoogleOAuth(clientId)
+    } catch (error) {
+      this.addOutput('❌ Failed to initialize Google OAuth. Check your Client ID and make sure your domain is authorized.', 'error')
+      this.addOutput('💡 Verify your OAuth2 credentials in Google Cloud Console.', 'info')
+    }
+  }
+
+  private async initializeGoogleOAuth(clientId: string) {
+    
+    return new Promise<void>((resolve, reject) => {
+      if (typeof window.google === 'undefined') {
+        reject(new Error('Google Identity Services not loaded'));
+        return;
+      }
+
+      window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/drive.file',
+        callback: async (response: any) => {
+          if (response.error) {
+            this.addOutput(`❌ Authorization failed: ${response.error}`, 'error')
+            reject(new Error(response.error));
+            return;
+          }
+
+          this.addOutput('✅ Google authorization successful!', 'info')
+          this.addOutput('📤 Sending tokens to server...', 'info')
+
+          // Send tokens to server
+          const result = await this.auth.sendGoogleTokens({
+            access_token: response.access_token,
+            expires_at: Date.now() + (response.expires_in * 1000)
+          })
+
+          if (result.success) {
+            this.addOutput('✅ Google Drive backup is now configured!', 'info')
+          } else {
+            this.addOutput(`❌ Failed to configure: ${result.message}`, 'error')
+          }
+
+          resolve();
+        },
+      }).requestAccessToken();
+    });
   }
 
   private async executeCommand(input: string) {

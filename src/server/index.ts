@@ -135,6 +135,43 @@ app.post('/api/db/value', authenticateJWT, async (c) => {
   }
 })
 
+// Google auth endpoints (client-side flow)
+app.post('/api/auth/google/tokens', authenticateJWT, async (c) => {
+  try {
+    const body = await c.req.json()
+    const { access_token, refresh_token, expires_at, folder_id } = body
+
+    if (!access_token) {
+      return c.json({ error: 'Access token is required' }, 400)
+    }
+
+    // Store tokens and folder ID in backup service
+    backupService.setGoogleTokens({
+      access_token,
+      refresh_token,
+      expires_at
+    }, folder_id)
+
+    return c.json({ 
+      success: true, 
+      message: `Google Drive configured successfully${folder_id ? ` (folder: ${folder_id})` : ' (root folder)'}` 
+    })
+  } catch (error) {
+    console.error('Google tokens error:', error)
+    return c.json({ error: 'Failed to store Google tokens' }, 500)
+  }
+})
+
+app.get('/api/auth/google/status', authenticateJWT, async (c) => {
+  try {
+    const status = backupService.getAuthStatus()
+    return c.json(status)
+  } catch (error) {
+    console.error('Google auth status error:', error)
+    return c.json({ error: 'Failed to get Google auth status' }, 500)
+  }
+})
+
 // Backup endpoints (protected)
 app.post('/api/backup/trigger', authenticateJWT, async (c) => {
   try {
@@ -167,6 +204,7 @@ app.get(
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>Nexodo</title>
           <link rel="stylesheet" href="/public/css/style.css" />
+          <script src="https://accounts.google.com/gsi/client" async defer></script>
         </head>
         <body>
           <div id="app"></div>

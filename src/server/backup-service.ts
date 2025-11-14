@@ -1,37 +1,45 @@
 import { google } from 'googleapis';
 import { Pool } from 'pg';
 
+interface GoogleTokens {
+  access_token: string;
+  refresh_token?: string;
+  expires_at?: number;
+}
+
 export class BackupService {
   private drive: any;
+  private tokens: GoogleTokens | null = null;
+  private folderId: string | null = null;
   
   constructor(private pool: Pool) {
-    this.initializeGoogleDrive();
+    console.log('✅ Google Drive backup service initialized (client-side auth)');
   }
 
-  private initializeGoogleDrive() {
-    try {
-      // Parse the service account JSON from environment variable
-      const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-      if (!serviceAccountKey) {
-        console.warn('Google Drive backup disabled: GOOGLE_SERVICE_ACCOUNT_KEY not set');
-        return;
-      }
+  setGoogleTokens(tokens: GoogleTokens, folderId?: string): void {
+    this.tokens = tokens;
+    this.folderId = folderId || null;
+    
+    // Create OAuth2 client with tokens
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token
+    });
 
-      const credentials = JSON.parse(serviceAccountKey);
+    this.drive = google.drive({ version: 'v3', auth: oauth2Client });
+    console.log(`✅ Google Drive tokens updated${folderId ? ` (folder: ${folderId})` : ' (root folder)'}`);
+  }
 
-      // Create JWT auth client
-      const auth = new google.auth.JWT({
-        email: credentials.client_email,
-        key: credentials.private_key,
-        scopes: ['https://www.googleapis.com/auth/drive.file']
-      });
+  isGoogleAuthConfigured(): boolean {
+    return !!this.tokens && !!this.drive;
+  }
 
-      // Initialize Google Drive API
-      this.drive = google.drive({ version: 'v3', auth });
-      console.log('✅ Google Drive backup service initialized');
-    } catch (error) {
-      console.error('❌ Failed to initialize Google Drive:', error);
-    }
+  getAuthStatus(): { configured: boolean; hasRefreshToken: boolean } {
+    return {
+      configured: this.isGoogleAuthConfigured(),
+      hasRefreshToken: !!(this.tokens?.refresh_token)
+    };
   }
 
   async performBackup(): Promise<void> {
@@ -64,17 +72,13 @@ export class BackupService {
       // Create file name with timestamp
       const fileName = `nexodo-backup-${timestamp.split('T')[0]}.json`;
 
-      // Check if folder ID is provided (required for service accounts)
-      const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
-      if (!folderId) {
-        throw new Error('GOOGLE_DRIVE_FOLDER_ID is required for service account backups. Please create a shared folder and share it with your service account.');
-      }
-
       // Upload to Google Drive
-      const fileMetadata = {
-        name: fileName,
-        parents: [folderId]
-      };
+      const fileMetadata: any = { name: fileName };
+      
+      // Add folder if specified (from client configuration)
+      if (this.folderId) {
+        fileMetadata.parents = [this.folderId];
+      }
 
       const media = {
         mimeType: 'application/json',
@@ -87,7 +91,8 @@ export class BackupService {
         fields: 'id,name'
       });
 
-      console.log(`✅ Backup completed successfully: ${response.data.name} (ID: ${response.data.id})`);
+      const location = this.folderId ? `in folder ${this.folderId}` : 'in root drive';
+      console.log(`✅ Backup completed successfully: ${response.data.name} (ID: ${response.data.id}) ${location}`);
     } catch (error) {
       console.error('❌ Backup failed:', error);
       throw error;
