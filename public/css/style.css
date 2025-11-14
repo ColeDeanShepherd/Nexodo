@@ -223,14 +223,14 @@ button:active {
 
 .menu-dropdown {
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   right: 0;
   background: #2d2d30;
   border: 1px solid #3e3e42;
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   z-index: 1000;
-  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
   min-width: 160px;
 }
 
