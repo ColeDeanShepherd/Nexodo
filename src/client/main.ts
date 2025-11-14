@@ -5,7 +5,25 @@ import { TypeChecker, formatTypeError, formatType } from './compiler/type-checke
 import { Interpreter, formatRuntimeValue, formatRuntimeError } from './compiler/interpreter'
 import { EnvironmentService } from './environment-service'
 import { _elem, _h1, _div, _input, _button } from './ui-lib'
-import './google-types'
+
+// Google Identity Services API types
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        oauth2: {
+          initTokenClient: (config: {
+            client_id: string;
+            scope: string;
+            callback: (response: any) => void;
+          }) => {
+            requestAccessToken: () => void;
+          };
+        };
+      };
+    };
+  }
+}
 
 class Auth {
   private token: string | null = null
