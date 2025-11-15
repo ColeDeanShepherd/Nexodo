@@ -598,7 +598,12 @@ export class Interpreter {
   // Save user-defined bindings to serializable format
   saveEnvironment(): Record<string, any> {
     const userBindings = this.getUserDefinedBindings();
-    return this.serializeBindings(userBindings);
+    // Extract just the values for serialization (not expressions)
+    const valueMap = new Map<string, RuntimeValue>();
+    for (const [name, binding] of userBindings) {
+      valueMap.set(name, binding.value);
+    }
+    return this.serializeBindings(valueMap);
   }
 
   // Load user-defined bindings from serialized format
@@ -612,14 +617,14 @@ export class Interpreter {
   }
 
   // Get only user-defined bindings (exclude built-ins like console, Math)
-  getUserDefinedBindings(): Map<string, RuntimeValue> {
+  getUserDefinedBindings(): Map<string, EnvironmentBinding> {
     const builtins = new Set(['console', 'Math']);
-    const allBindings = this.environment.getAllBindings();
-    const userBindings = new Map<string, RuntimeValue>();
+    const allBindingsWithExpressions = this.environment.getAllBindingsWithExpressions();
+    const userBindings = new Map<string, EnvironmentBinding>();
 
-    for (const [name, value] of allBindings) {
+    for (const [name, binding] of allBindingsWithExpressions) {
       if (!builtins.has(name)) {
-        userBindings.set(name, value);
+        userBindings.set(name, binding);
       }
     }
 

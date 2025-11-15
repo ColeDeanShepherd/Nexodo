@@ -187,6 +187,10 @@ button:active {
   color: #d4d4d4;
 }
 
+.env-var-expression {
+  color: #4ec9b0;
+}
+
 .env-var-value {
   color: #ce9178;
 }

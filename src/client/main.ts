@@ -2,7 +2,7 @@ import { createReplParser } from './compiler/grammar'
 import { Lexer } from './compiler/lexer'
 import { buildAST } from './compiler/ast'
 import { TypeChecker, formatTypeError, formatType } from './compiler/type-checker'
-import { Interpreter, formatRuntimeValue, formatRuntimeError } from './compiler/interpreter'
+import { Interpreter, formatRuntimeValue, formatRuntimeError, expressionToCode } from './compiler/interpreter'
 import { EnvironmentService } from './environment-service'
 import { _elem, _h1, _div, _input, _button } from './ui-lib'
 
@@ -214,14 +214,30 @@ class REPL {
     // Create variables list
     const varsList = _div({ class: 'env-variables' })
     
-    for (const [name, value] of userBindings) {
-      const valueStr = formatRuntimeValue(value)
-      const varItem = _div({ class: 'env-variable' }, [
-        _elem('span', { class: 'env-var-name' }, [name]),
-        _elem('span', { class: 'env-var-separator' }, [': ']),
-        _elem('span', { class: 'env-var-value' }, [valueStr])
-      ])
-      varsList.appendChild(varItem)
+    for (const [name, binding] of userBindings) {
+      console.log(name, binding);
+      const valueStr = formatRuntimeValue(binding.value)
+      
+      // If there's an expression, show both the expression and the evaluated value
+      if (binding.expression) {
+        const exprStr = expressionToCode(binding.expression)
+        const varItem = _div({ class: 'env-variable' }, [
+          _elem('span', { class: 'env-var-name' }, [name]),
+          _elem('span', { class: 'env-var-separator' }, [' = ']),
+          _elem('span', { class: 'env-var-expression' }, [exprStr]),
+          _elem('span', { class: 'env-var-separator' }, [' → ']),
+          _elem('span', { class: 'env-var-value' }, [valueStr])
+        ])
+        varsList.appendChild(varItem)
+      } else {
+        // No expression, just show the value
+        const varItem = _div({ class: 'env-variable' }, [
+          _elem('span', { class: 'env-var-name' }, [name]),
+          _elem('span', { class: 'env-var-separator' }, [': ']),
+          _elem('span', { class: 'env-var-value' }, [valueStr])
+        ])
+        varsList.appendChild(varItem)
+      }
     }
     
     this.envDisplayElement.appendChild(varsList)
