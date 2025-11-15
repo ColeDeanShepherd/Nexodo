@@ -1,5 +1,7 @@
 # To-Do
 
+* Remove delete built-in from UI
+* Clickable sub-values
 * Fix runtime error
 * Evaluate in correct order based on dependency graph? Or just lazy eval.
 * Prevent missing/circular references
