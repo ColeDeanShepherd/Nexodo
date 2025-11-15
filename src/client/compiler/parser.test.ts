@@ -23,7 +23,7 @@ test("Parser should parse empty object using object rule", () => {
 
 test("Parser should parse assignment with empty object", () => {
   const lexer = new Lexer();
-  const tokens = lexer.tokenize('mom = {}');
+  const tokens = lexer.tokenize('mom: {}');
   const grammar = createReplGrammar();
   const parser = new RecursiveDescentParser(tokens, grammar, 'expression');
   
@@ -32,7 +32,7 @@ test("Parser should parse assignment with empty object", () => {
   expect(parseTree).not.toBeNull();
   expect(parseTree!.type).toBe(ParseNodeType.Assignment);
   
-  // Should have 3 children: identifier, =, object
+  // Should have 3 children: identifier, :, object
   expect(parseTree!.children).toHaveLength(3);
   
   // First child should be the identifier 'mom'

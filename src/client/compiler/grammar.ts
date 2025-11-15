@@ -112,11 +112,11 @@ export function createReplGrammar(): Record<string, GrammarRule> {
     new NonTerminal('non_binding_expression')
   );
 
-  // Assignment: postfix_expression = expression (covers all assignable expressions)
+  // Assignment: postfix_expression : expression (covers all assignable expressions)
   grammar['assignment'] = new Sequence(
     ParseNodeType.Assignment,
     new NonTerminal('postfix_expression'),
-    new Terminal(TokenType.ASSIGN),
+    new Terminal(TokenType.COLON),
     new NonTerminal('non_binding_expression')
   );
 

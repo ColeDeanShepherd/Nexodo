@@ -128,6 +128,86 @@ export class PostfixOperations extends GrammarRule {
   }
 }
 
+// Pratt Parser Support
+
+export enum OperatorType {
+  PREFIX = 'PREFIX',
+  INFIX = 'INFIX',
+  POSTFIX = 'POSTFIX'
+}
+
+export interface PrefixOperator {
+  type: OperatorType.PREFIX;
+  tokenType: TokenType;
+  bindingPower: number;
+  buildNode: (parser: RecursiveDescentParser, operator: Token, right: ParseNode) => ParseNode;
+}
+
+export interface InfixOperator {
+  type: OperatorType.INFIX;
+  tokenType: TokenType;
+  leftBindingPower: number;
+  rightBindingPower: number;
+  buildNode: (parser: RecursiveDescentParser, left: ParseNode, operator: Token, right: ParseNode) => ParseNode;
+}
+
+export interface PostfixOperator {
+  type: OperatorType.POSTFIX;
+  tokenType: TokenType;
+  leftBindingPower: number;
+  buildNode: (parser: RecursiveDescentParser, left: ParseNode, operator: Token) => ParseNode;
+}
+
+export type PrattOperator = PrefixOperator | InfixOperator | PostfixOperator;
+
+export interface PrattConfig {
+  // Base expression parser (for atoms like literals, identifiers, grouped expressions)
+  baseExpressionRule: GrammarRule;
+  
+  // Operator definitions
+  operators: PrattOperator[];
+  
+  // Optional node type for expression container
+  nodeType?: ParseNodeType;
+}
+
+export class PrattExpression extends GrammarRule {
+  private prefixOperators: Map<TokenType, PrefixOperator> = new Map();
+  private infixOperators: Map<TokenType, InfixOperator> = new Map();
+  private postfixOperators: Map<TokenType, PostfixOperator> = new Map();
+  
+  constructor(public config: PrattConfig) {
+    super();
+    
+    // Index operators by token type for quick lookup
+    for (const op of config.operators) {
+      switch (op.type) {
+        case OperatorType.PREFIX:
+          this.prefixOperators.set(op.tokenType, op);
+          break;
+        case OperatorType.INFIX:
+          this.infixOperators.set(op.tokenType, op);
+          break;
+        case OperatorType.POSTFIX:
+          this.postfixOperators.set(op.tokenType, op);
+          break;
+      }
+    }
+  }
+  
+  getPrefixOperator(tokenType: TokenType): PrefixOperator | undefined {
+    return this.prefixOperators.get(tokenType);
+  }
+  
+  getInfixOperator(tokenType: TokenType): InfixOperator | undefined {
+    return this.infixOperators.get(tokenType);
+  }
+  
+  getPostfixOperator(tokenType: TokenType): PostfixOperator | undefined {
+    return this.postfixOperators.get(tokenType);
+  }
+}
+
 export class RecursiveDescentParser {
   private position: number = 0;
 
@@ -179,6 +259,9 @@ export class RecursiveDescentParser {
     if (rule instanceof PostfixOperations) {
       return this.parsePostfixOperations(rule);
     }
+    if (rule instanceof PrattExpression) {
+      return this.parsePrattExpression(rule);
+    }
     
     throw new Error(`Unknown rule type: ${rule.constructor.name}`);
   }
@@ -210,6 +293,9 @@ export class RecursiveDescentParser {
     }
     if (rule instanceof PostfixOperations) {
       return this.canParseRule(rule.baseRule);
+    }
+    if (rule instanceof PrattExpression) {
+      return this.canParsePrattExpression(rule);
     }
     
     return false;
@@ -412,5 +498,88 @@ export class RecursiveDescentParser {
 
   isAtEnd(): boolean {
     return this.position >= this.tokens.length;
+  }
+
+  // Pratt Parser Methods
+  
+  private canParsePrattExpression(pratt: PrattExpression): boolean {
+    const current = this.currentToken();
+    if (!current) return false;
+    
+    // Can parse if we have a prefix operator or can parse the base expression
+    return pratt.getPrefixOperator(current.type) !== undefined || 
+           this.canParseRule(pratt.config.baseExpressionRule);
+  }
+
+  private parsePrattExpression(pratt: PrattExpression, minBindingPower: number = 0): ParseNode | null {
+    this.skipWhitespace();
+    
+    // Parse the left side (prefix expression)
+    let left = this.parsePrattPrefix(pratt);
+    if (left === null) {
+      return null;
+    }
+
+    this.skipWhitespace();
+
+    // Parse infix and postfix operators with binding power precedence
+    while (!this.isAtEnd()) {
+      const current = this.currentToken();
+      if (!current) break;
+
+      // Check for postfix operator
+      const postfixOp = pratt.getPostfixOperator(current.type);
+      if (postfixOp) {
+        if (postfixOp.leftBindingPower < minBindingPower) {
+          break;
+        }
+        const opToken = this.advance()!;
+        left = postfixOp.buildNode(this, left, opToken);
+        this.skipWhitespace();
+        continue;
+      }
+
+      // Check for infix operator
+      const infixOp = pratt.getInfixOperator(current.type);
+      if (infixOp) {
+        if (infixOp.leftBindingPower < minBindingPower) {
+          break;
+        }
+        const opToken = this.advance()!;
+        this.skipWhitespace();
+        const right = this.parsePrattExpression(pratt, infixOp.rightBindingPower);
+        if (right === null) {
+          throw new ParseException(`Expected expression after ${opToken.value}`);
+        }
+        left = infixOp.buildNode(this, left, opToken, right);
+        this.skipWhitespace();
+        continue;
+      }
+
+      // No operator found, we're done
+      break;
+    }
+
+    return left;
+  }
+
+  private parsePrattPrefix(pratt: PrattExpression): ParseNode | null {
+    const current = this.currentToken();
+    if (!current) return null;
+
+    // Check for prefix operator
+    const prefixOp = pratt.getPrefixOperator(current.type);
+    if (prefixOp) {
+      const opToken = this.advance()!;
+      this.skipWhitespace();
+      const right = this.parsePrattExpression(pratt, prefixOp.bindingPower);
+      if (right === null) {
+        throw new ParseException(`Expected expression after prefix operator ${opToken.value}`);
+      }
+      return prefixOp.buildNode(this, opToken, right);
+    }
+
+    // Otherwise, parse base expression
+    return this.parseGrammarRule(pratt.config.baseExpressionRule);
   }
 }

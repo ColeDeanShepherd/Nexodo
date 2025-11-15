@@ -187,7 +187,7 @@ export class ASTBuilder {
     // Filter out token nodes except identifiers and member access
     const nonTokenChildren = node.children.filter(child => 
       child.type !== ParseNodeType.Token || 
-      (child.token?.type !== 'ASSIGN' as any)
+      (child.token?.type !== 'COLON' as any)
     );
     
     if (nonTokenChildren.length !== 2) {

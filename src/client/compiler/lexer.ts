@@ -8,9 +8,6 @@ export enum TokenType {
   // Identifiers and keywords
   IDENTIFIER = 'IDENTIFIER',
   
-  // Operators
-  ASSIGN = 'ASSIGN',
-  
   // Punctuation
   LPAREN = 'LPAREN',
   RPAREN = 'RPAREN',
@@ -55,9 +52,6 @@ export class Lexer {
     { type: TokenType.STRING, regex: /^'([^'\\]|\\.)*'/ },
     { type: TokenType.BOOLEAN, regex: /^(true|false)/ },
     { type: TokenType.NULL, regex: /^null/ },
-    
-    // Operators
-    { type: TokenType.ASSIGN, regex: /^=/ },
     
     // Punctuation
     { type: TokenType.LPAREN, regex: /^\(/ },
