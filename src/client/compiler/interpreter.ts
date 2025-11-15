@@ -253,20 +253,13 @@ export class Interpreter {
   }
 
   private evaluateAssignment(node: Assignment): RuntimeValue {
-    // For expression runtime values, don't evaluate - store the expression itself
-    const isExpressionValue = node.value instanceof Expression && !(node.value.nodeType in {
-      'NumberLiteral': true,
-      'StringLiteral': true,
-      'BooleanLiteral': true,
-      'NullLiteral': true
-    });
-    
-    const value = isExpressionValue ? node.value : this.evaluateNode(node.value);
+    // Always evaluate the expression to get the runtime value
+    const value = this.evaluateNode(node.value);
     
     // If target is an identifier
     if (node.target.nodeType === 'Identifier') {
       const identifier = node.target as Identifier;
-      // Store the original expression along with the value
+      // Store both the evaluated value and the original expression
       this.environment.set(identifier.name, value, node.value);
       return value;
     }
@@ -612,7 +605,14 @@ export class Interpreter {
     
     // Apply the loaded bindings to current environment
     for (const [name, value] of deserializedBindings) {
-      this.environment.define(name, value);
+      // If the value is an Expression (unevaluated), evaluate it and store both
+      if (value instanceof Expression) {
+        const evaluatedValue = this.evaluateNode(value);
+        this.environment.define(name, evaluatedValue, value);
+      } else {
+        // For evaluated values, store without an expression
+        this.environment.define(name, value);
+      }
     }
   }
 
