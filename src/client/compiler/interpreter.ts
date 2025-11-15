@@ -37,6 +37,12 @@ export interface RuntimeFunction {
   (...args: RuntimeValue[]): RuntimeValue;
 }
 
+// Environment binding - stores both value and optional expression
+export interface EnvironmentBinding {
+  value: RuntimeValue;
+  expression?: Expression;
+}
+
 // Runtime errors
 export class RuntimeError extends Error {
   constructor(
@@ -50,20 +56,20 @@ export class RuntimeError extends Error {
 
 // Runtime environment for variable bindings
 export class RuntimeEnvironment {
-  private bindings = new Map<string, RuntimeValue>();
+  private bindings = new Map<string, EnvironmentBinding>();
   private parent?: RuntimeEnvironment;
 
   constructor(parent?: RuntimeEnvironment) {
     this.parent = parent;
   }
 
-  define(name: string, value: RuntimeValue): void {
-    this.bindings.set(name, value);
+  define(name: string, value: RuntimeValue, expression?: Expression): void {
+    this.bindings.set(name, { value, expression });
   }
 
   get(name: string): RuntimeValue {
-    const value = this.bindings.get(name);
-    if (value !== undefined) return value;
+    const binding = this.bindings.get(name);
+    if (binding !== undefined) return binding.value;
     
     if (this.parent) {
       return this.parent.get(name);
@@ -72,22 +78,33 @@ export class RuntimeEnvironment {
     throw new RuntimeError(`Undefined variable: ${name}`);
   }
 
-  set(name: string, value: RuntimeValue): void {
+  getBinding(name: string): EnvironmentBinding | undefined {
+    const binding = this.bindings.get(name);
+    if (binding !== undefined) return binding;
+    
+    if (this.parent) {
+      return this.parent.getBinding(name);
+    }
+    
+    return undefined;
+  }
+
+  set(name: string, value: RuntimeValue, expression?: Expression): void {
     if (this.bindings.has(name)) {
-      this.bindings.set(name, value);
+      this.bindings.set(name, { value, expression });
       return;
     }
     
     if (this.parent) {
       try {
-        this.parent.set(name, value);
+        this.parent.set(name, value, expression);
         return;
       } catch (e) {
         // If parent doesn't have it, define it here
       }
     }
     
-    this.bindings.set(name, value);
+    this.bindings.set(name, { value, expression });
   }
 
   delete(name: string): boolean {
@@ -109,8 +126,16 @@ export class RuntimeEnvironment {
 
   getAllBindings(): Map<string, RuntimeValue> {
     const result = new Map(this.parent?.getAllBindings() || []);
-    for (const [key, value] of this.bindings) {
-      result.set(key, value);
+    for (const [key, binding] of this.bindings) {
+      result.set(key, binding.value);
+    }
+    return result;
+  }
+
+  getAllBindingsWithExpressions(): Map<string, EnvironmentBinding> {
+    const result = new Map(this.parent?.getAllBindingsWithExpressions() || []);
+    for (const [key, binding] of this.bindings) {
+      result.set(key, binding);
     }
     return result;
   }
@@ -228,12 +253,21 @@ export class Interpreter {
   }
 
   private evaluateAssignment(node: Assignment): RuntimeValue {
-    const value = this.evaluateNode(node.value);
+    // For expression runtime values, don't evaluate - store the expression itself
+    const isExpressionValue = node.value instanceof Expression && !(node.value.nodeType in {
+      'NumberLiteral': true,
+      'StringLiteral': true,
+      'BooleanLiteral': true,
+      'NullLiteral': true
+    });
+    
+    const value = isExpressionValue ? node.value : this.evaluateNode(node.value);
     
     // If target is an identifier
     if (node.target.nodeType === 'Identifier') {
       const identifier = node.target as Identifier;
-      this.environment.set(identifier.name, value);
+      // Store the original expression along with the value
+      this.environment.set(identifier.name, value, node.value);
       return value;
     }
 
