@@ -564,11 +564,3 @@ export function formatTypeError(error: SemanticError): string {
 export function formatType(type: Type): string {
   return type.toString();
 }
-
-// Usage example:
-// const typeChecker = new TypeChecker();
-// const result = typeChecker.analyze(ast);
-// if (result.errors.length > 0) {
-//   console.log('Type errors:', result.errors.map(formatTypeError));
-// }
-// console.log('Result type:', formatType(result.type));

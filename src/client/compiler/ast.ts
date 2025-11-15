@@ -454,8 +454,3 @@ export function buildAST(parseTree: ParseNode): ASTNode {
   const builder = new ASTBuilder();
   return builder.build(parseTree);
 }
-
-// Usage example:
-// const parseTree = parser.parse();
-// const ast = buildAST(parseTree);
-// console.log(ast);

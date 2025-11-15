@@ -39,7 +39,7 @@ export interface RuntimeFunction {
 
 // Environment binding - stores both value and optional expression
 export interface EnvironmentBinding {
-  value: RuntimeValue;
+  value?: RuntimeValue;
   expression?: Expression;
 }
 
@@ -56,21 +56,25 @@ export class RuntimeError extends Error {
 
 // Runtime environment for variable bindings
 export class RuntimeEnvironment {
+  private interpreter: Interpreter;
   private bindings = new Map<string, EnvironmentBinding>();
   private parent?: RuntimeEnvironment;
 
-  constructor(parent?: RuntimeEnvironment) {
+  constructor(interpreter: Interpreter, parent?: RuntimeEnvironment) {
+    this.interpreter = interpreter;
     this.parent = parent;
   }
 
-  define(name: string, value: RuntimeValue, expression?: Expression): void {
+  define(name: string, value?: RuntimeValue, expression?: Expression): void {
     this.bindings.set(name, { value, expression });
   }
 
   get(name: string): RuntimeValue {
     const binding = this.bindings.get(name);
-    if (binding !== undefined) return binding.value;
-    
+    if (binding !== undefined) {
+      return this.interpreter.getBindingValue(binding);
+    }
+
     if (this.parent) {
       return this.parent.get(name);
     }
@@ -121,13 +125,13 @@ export class RuntimeEnvironment {
   }
 
   createChild(): RuntimeEnvironment {
-    return new RuntimeEnvironment(this);
+    return new RuntimeEnvironment(this.interpreter, this);
   }
 
   getAllBindings(): Map<string, RuntimeValue> {
     const result = new Map(this.parent?.getAllBindings() || []);
     for (const [key, binding] of this.bindings) {
-      result.set(key, binding.value);
+      result.set(key, this.interpreter.getBindingValue(binding));
     }
     return result;
   }
@@ -151,7 +155,7 @@ export class Interpreter {
   }
 
   private createBuiltinEnvironment(): RuntimeEnvironment {
-    const env = new RuntimeEnvironment();
+    const env = new RuntimeEnvironment(this);
     
     // Built-in console object
     const consoleObj: RuntimeObject = {
@@ -211,7 +215,20 @@ export class Interpreter {
     }
   }
 
-  private evaluateNode(node: ASTNode): RuntimeValue {
+  public getBindingValue(binding: EnvironmentBinding): RuntimeValue {
+    // Lazy evaluation: if value is undefined but expression exists, evaluate it now
+    if (binding.value === undefined) {
+      if (binding.expression === undefined) {
+        throw new RuntimeError(`Undefined variable: TODONAME`);
+      }
+
+      binding.value = this.evaluateNode(binding.expression);
+    }
+
+    return binding.value;
+  }
+
+  public evaluateNode(node: ASTNode): RuntimeValue {
     switch (node.nodeType) {
       case 'Program':
         return this.evaluateProgram(node as Program);
@@ -615,7 +632,7 @@ export class Interpreter {
     const valueMap = new Map<string, RuntimeValue>();
     for (const [name, binding] of userBindings) {
       // If we have the original expression, serialize that instead of the evaluated value
-      valueMap.set(name, binding.expression || binding.value);
+      valueMap.set(name, binding.expression || this.getBindingValue(binding));
     }
     return this.serializeBindings(valueMap);
   }
@@ -629,10 +646,10 @@ export class Interpreter {
     for (const [name, value] of deserializedBindings) {
       if (value instanceof Expression) {
         // Store the expression but with a placeholder value (the expression itself)
-        this.environment.define(name, value, value);
+        this.environment.define(name, undefined, value);
       } else {
         // For already-evaluated values, store them directly
-        this.environment.define(name, value);
+        this.environment.define(name, value, undefined);
       }
     }
     

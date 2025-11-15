@@ -215,8 +215,7 @@ class REPL {
     const varsList = _div({ class: 'env-variables' })
     
     for (const [name, binding] of userBindings) {
-      console.log(name, binding);
-      const valueStr = formatRuntimeValue(binding.value)
+      const valueStr = formatRuntimeValue(binding.value!)
       
       // If there's an expression, show both the expression and the evaluated value
       if (binding.expression) {
