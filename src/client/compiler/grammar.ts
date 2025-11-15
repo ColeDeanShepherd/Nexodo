@@ -13,7 +13,8 @@ import {
   GrammarRule,
   PrattExpression,
   OperatorType,
-  PrattOperator
+  PrattOperator,
+  TokenSeparatedList
 } from './parser';
 
 // Grammar definition for REPL
@@ -74,42 +75,18 @@ export function createReplGrammar(): Record<string, GrammarRule> {
       tokenType: TokenType.LPAREN,
       leftBindingPower: 100,
       buildNode: (parser, left, operator) => {
-        // Parse arguments
-        const args = new ParseNode(ParseNodeType.Array);
+        // Parse arguments using TokenSeparatedList
+        const argListRule = new TokenSeparatedList(
+          new NonTerminal('expression'),
+          TokenType.COMMA,
+          ParseNodeType.Array, // container type for arguments
+          true,  // allow empty argument list
+          false  // don't allow trailing comma in function calls
+        );
         
         parser.skipWhitespace();
-        
-        // Handle empty argument list
-        if (parser.check(TokenType.RPAREN)) {
-          parser.advance(); // consume ')'
-          const funcCall = new ParseNode(ParseNodeType.FunctionCall);
-          funcCall.addChild(left);
-          funcCall.addChild(args);
-          return funcCall;
-        }
-        
-        // Parse first argument (using the expression rule)
-        const firstArg = parser.parseRule('expression');
-        if (!firstArg) {
-          throw new Error('Expected argument expression');
-        }
-        args.addChild(firstArg);
-        
+        const args = parser.parseGrammarRule(argListRule) ?? new ParseNode(ParseNodeType.Array);
         parser.skipWhitespace();
-        
-        // Parse additional arguments separated by commas
-        while (parser.check(TokenType.COMMA)) {
-          parser.advance(); // consume ','
-          parser.skipWhitespace();
-          
-          // Parse next argument
-          const arg = parser.parseRule('expression');
-          if (!arg) {
-            throw new Error('Expected argument expression after comma');
-          }
-          args.addChild(arg);
-          parser.skipWhitespace();
-        }
         
         // Expect closing parenthesis
         if (!parser.check(TokenType.RPAREN)) {
@@ -166,24 +143,17 @@ export function createReplGrammar(): Record<string, GrammarRule> {
   grammar['object'] = new Sequence(
     ParseNodeType.Object,
     new Terminal(TokenType.LBRACE),
-    new Optional(new NonTerminal('object_property_list')),
+    new NonTerminal('object_property_list'),
     new Terminal(TokenType.RBRACE)
   );
 
-  // Object property list: property or property, property, ...
-  grammar['object_property_list'] = new Choice(
+  // Object property list: property, property, ...
+  grammar['object_property_list'] = new TokenSeparatedList(
     new NonTerminal('object_property'),
-    new Sequence(
-      ParseNodeType.Token,
-      new NonTerminal('object_property'),
-      new OneOrMore(
-        new Sequence(
-          ParseNodeType.Token,
-          new Terminal(TokenType.COMMA),
-          new NonTerminal('object_property')
-        )
-      )
-    )
+    TokenType.COMMA,
+    ParseNodeType.Token, // container type for properties
+    true, // allow empty
+    true  // allow trailing comma
   );
 
   // Object property: key: value
@@ -201,24 +171,17 @@ export function createReplGrammar(): Record<string, GrammarRule> {
   grammar['array'] = new Sequence(
     ParseNodeType.Array,
     new Terminal(TokenType.LBRACKET),
-    new Optional(new NonTerminal('array_element_list')),
+    new NonTerminal('array_element_list'),
     new Terminal(TokenType.RBRACKET)
   );
 
-  // Array element list: element or element, element, ...
-  grammar['array_element_list'] = new Choice(
+  // Array element list: element, element, ...
+  grammar['array_element_list'] = new TokenSeparatedList(
     new NonTerminal('expression'),
-    new Sequence(
-      ParseNodeType.Token,
-      new NonTerminal('expression'),
-      new OneOrMore(
-        new Sequence(
-          ParseNodeType.Token,
-          new Terminal(TokenType.COMMA),
-          new NonTerminal('expression')
-        )
-      )
-    )
+    TokenType.COMMA,
+    ParseNodeType.Token, // container type for elements  
+    true, // allow empty
+    true   // allow trailing comma in arrays
   );
 
   return grammar;

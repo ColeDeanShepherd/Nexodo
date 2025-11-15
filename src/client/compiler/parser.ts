@@ -114,6 +114,18 @@ export class WithWhitespace extends GrammarRule {
   }
 }
 
+export class TokenSeparatedList extends GrammarRule {
+  constructor(
+    public elementRule: GrammarRule,
+    public separatorType: TokenType,
+    public containerType?: ParseNodeType,
+    public allowEmpty: boolean = true,
+    public allowTrailingSeparator: boolean = false
+  ) {
+    super();
+  }
+}
+
 export interface PostfixOperation {
   triggerToken: TokenType;
   buildNode: (parser: RecursiveDescentParser, left: ParseNode) => ParseNode;
@@ -262,6 +274,9 @@ export class RecursiveDescentParser {
     if (rule instanceof PrattExpression) {
       return this.parsePrattExpression(rule);
     }
+    if (rule instanceof TokenSeparatedList) {
+      return this.parseTokenSeparatedList(rule);
+    }
     
     throw new Error(`Unknown rule type: ${rule.constructor.name}`);
   }
@@ -296,6 +311,9 @@ export class RecursiveDescentParser {
     }
     if (rule instanceof PrattExpression) {
       return this.canParsePrattExpression(rule);
+    }
+    if (rule instanceof TokenSeparatedList) {
+      return this.canParseTokenSeparatedList(rule);
     }
     
     return false;
@@ -448,6 +466,80 @@ export class RecursiveDescentParser {
   private parseWithWhitespace(ws: WithWhitespace): ParseNode | null {
     this.skipWhitespace();
     return this.parseGrammarRule(ws.rule);
+  }
+
+  private canParseTokenSeparatedList(rule: TokenSeparatedList): boolean {
+    // If empty lists are allowed, we can always parse (might result in empty list)
+    if (rule.allowEmpty) {
+      return true;
+    }
+    // Otherwise, we need to be able to parse at least one element
+    return this.canParseRule(rule.elementRule);
+  }
+
+  private parseTokenSeparatedList(rule: TokenSeparatedList): ParseNode | null {
+    const elements: ParseNode[] = [];
+    
+    this.skipWhitespace();
+    
+    // Try to parse the first element
+    if (this.canParseRule(rule.elementRule)) {
+      const firstElement = this.parseGrammarRule(rule.elementRule);
+      if (firstElement !== null) {
+        elements.push(firstElement);
+        
+        this.skipWhitespace();
+        
+        // Parse additional elements separated by the separator token
+        while (this.check(rule.separatorType)) {
+          this.advance(); // consume separator
+          this.skipWhitespace();
+          
+          // Check if there's another element after the separator
+          if (this.canParseRule(rule.elementRule)) {
+            const element = this.parseGrammarRule(rule.elementRule);
+            if (element !== null) {
+              elements.push(element);
+              this.skipWhitespace();
+            } else {
+              // If we can't parse an element after a separator and trailing separators aren't allowed
+              if (!rule.allowTrailingSeparator) {
+                throw new ParseException(`Expected element after separator in token separated list`);
+              }
+              break;
+            }
+          } else {
+            // No element after separator
+            if (!rule.allowTrailingSeparator) {
+              throw new ParseException(`Expected element after separator in token separated list`);
+            }
+            break;
+          }
+        }
+      }
+    } else if (!rule.allowEmpty) {
+      // Can't parse first element and empty lists aren't allowed
+      return null;
+    }
+    
+    // Create container if specified, otherwise return the elements directly
+    if (rule.containerType) {
+      const container = new ParseNode(rule.containerType);
+      for (const element of elements) {
+        container.addChild(element);
+      }
+      return container;
+    }
+    
+    // If no container type and we have elements, we need to decide what to return
+    if (elements.length === 0) {
+      return null; // Empty list represented as null
+    } else if (elements.length === 1) {
+      return elements[0]; // Single element
+    } else {
+      // Multiple elements without a container - this is problematic
+      throw new Error("TokenSeparatedList without container type matched multiple items");
+    }
   }
 
   private parsePostfixOperations(postfix: PostfixOperations): ParseNode | null {
