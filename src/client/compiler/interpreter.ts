@@ -591,10 +591,11 @@ export class Interpreter {
   // Save user-defined bindings to serializable format
   saveEnvironment(): Record<string, any> {
     const userBindings = this.getUserDefinedBindings();
-    // Extract just the values for serialization (not expressions)
+    // Prefer expressions over values when available for serialization
     const valueMap = new Map<string, RuntimeValue>();
     for (const [name, binding] of userBindings) {
-      valueMap.set(name, binding.value);
+      // If we have the original expression, serialize that instead of the evaluated value
+      valueMap.set(name, binding.expression || binding.value);
     }
     return this.serializeBindings(valueMap);
   }
