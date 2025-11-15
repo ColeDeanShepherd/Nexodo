@@ -219,16 +219,28 @@ class REPL {
       const valueStr = formatRuntimeValue(binding.value)
       
       // If there's an expression, show both the expression and the evaluated value
-      if (binding.expression && (binding.value !== binding.expression)) {
+      if (binding.expression) {
         const exprStr = expressionToCode(binding.expression)
-        const varItem = _div({ class: 'env-variable' }, [
-          _elem('span', { class: 'env-var-name' }, [name]),
-          _elem('span', { class: 'env-var-separator' }, [': ']),
-          _elem('span', { class: 'env-var-value' }, [valueStr]),
-          _elem('span', { class: 'env-var-separator' }, [' <- ']),
-          _elem('span', { class: 'env-var-expression' }, [exprStr])
-        ])
-        varsList.appendChild(varItem)
+
+        if (valueStr !== exprStr) {
+          // Only show expression if it's different from the value string
+          const varItem = _div({ class: 'env-variable' }, [
+            _elem('span', { class: 'env-var-name' }, [name]),
+            _elem('span', { class: 'env-var-separator' }, [': ']),
+            _elem('span', { class: 'env-var-value' }, [valueStr]),
+            _elem('span', { class: 'env-var-separator' }, [' <- ']),
+            _elem('span', { class: 'env-var-expression' }, [exprStr])
+          ])
+          varsList.appendChild(varItem)
+        } else {
+          // If expression and value are the same, just show one
+          const varItem = _div({ class: 'env-variable' }, [
+            _elem('span', { class: 'env-var-name' }, [name]),
+            _elem('span', { class: 'env-var-separator' }, [': ']),
+            _elem('span', { class: 'env-var-value' }, [valueStr])
+          ])
+          varsList.appendChild(varItem)
+        }
       } else {
         // No expression, just show the value
         const varItem = _div({ class: 'env-variable' }, [
