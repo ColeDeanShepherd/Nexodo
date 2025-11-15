@@ -322,8 +322,7 @@ class REPL {
     const prompt = _elem('span', { class: 'repl-prompt' }, ['> '])
     this.inputElement = _input({ 
       class: 'repl-input', 
-      type: 'text',
-      placeholder: 'Try: x = 42, {name: "John"}, [1,2,3], console.log("hello")...'
+      type: 'text'
     }) as HTMLInputElement
     
     const inputContainer = _div({ class: 'repl-input-container' }, [prompt, this.inputElement])
