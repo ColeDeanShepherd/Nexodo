@@ -383,11 +383,24 @@ export class ASTBuilder {
   private collectElements(node: ParseNode, elements: Expression[]): void {
     for (const child of node.children) {
       if (child.type !== ParseNodeType.Token || child.token?.type !== 'COMMA' as any) {
-        if (child.children && child.children.length > 0) {
-          // Recursively check nested containers
+        // Check if this is a direct expression node
+        if (child.type === ParseNodeType.Object || 
+            child.type === ParseNodeType.Array ||
+            child.type === ParseNodeType.Literal ||
+            child.type === ParseNodeType.Identifier ||
+            child.type === ParseNodeType.FunctionCall ||
+            child.type === ParseNodeType.MemberAccess ||
+            child.type === ParseNodeType.ArrayAccess) {
+          // Build the expression directly
+          const element = this.build(child);
+          if (element instanceof Expression) {
+            elements.push(element);
+          }
+        } else if (child.children && child.children.length > 0 && child.type === ParseNodeType.Token) {
+          // Only recursively search in Token containers
           this.collectElements(child, elements);
         } else if (child.type !== ParseNodeType.Token) {
-          // Only build non-Token nodes
+          // Only build non-Token nodes that weren't handled above
           const element = this.build(child);
           if (element instanceof Expression) {
             elements.push(element);
