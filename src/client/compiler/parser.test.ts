@@ -106,3 +106,49 @@ test("Parser should parse Math.abs(1)", () => {
   expect(arg.type).toBe(ParseNodeType.Literal);
   expect(arg.token?.value).toBe('1');
 });
+
+test("Parser should parse array with object [{}]", () => {
+  const lexer = new Lexer();
+  const tokens = lexer.tokenize('[{}]');
+  const grammar = createReplGrammar();
+  const parser = new RecursiveDescentParser(tokens, grammar, 'expression');
+  
+  const parseTree = parser.parseRule('expression');
+  
+  expect(parseTree).not.toBeNull();
+  expect(parseTree!.type).toBe(ParseNodeType.Array);
+  
+  // Array should have 3 children: [, elements_container, ]
+  expect(parseTree!.children).toHaveLength(3);
+  
+  // Check brackets
+  expect(parseTree!.children[0].type).toBe(ParseNodeType.Token);
+  expect(parseTree!.children[0].token?.value).toBe('[');
+  expect(parseTree!.children[2].type).toBe(ParseNodeType.Token);
+  expect(parseTree!.children[2].token?.value).toBe(']');
+  
+  // Check elements container (middle child)
+  const elementsContainer = parseTree!.children[1];
+  expect(elementsContainer.type).toBe(ParseNodeType.Token);
+  expect(elementsContainer.children).toHaveLength(1);
+  
+  // Check the object element
+  const objectElement = elementsContainer.children[0];
+  expect(objectElement.type).toBe(ParseNodeType.Object);
+});
+
+test("AST builder should handle array with object [{}]", () => {
+  const lexer = new Lexer();
+  const tokens = lexer.tokenize('[{}]');
+  const grammar = createReplGrammar();
+  const parser = new RecursiveDescentParser(tokens, grammar, 'expression');
+  
+  const parseTree = parser.parseRule('expression');
+  expect(parseTree).not.toBeNull();
+  
+  // This should not throw "Unsupported parse node type: Token"
+  const { buildAST } = require('./ast');
+  const ast = buildAST(parseTree!);
+  
+  expect(ast.nodeType).toBe('ArrayLiteral');
+});

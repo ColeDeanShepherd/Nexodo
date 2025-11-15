@@ -386,7 +386,8 @@ export class ASTBuilder {
         if (child.children && child.children.length > 0) {
           // Recursively check nested containers
           this.collectElements(child, elements);
-        } else {
+        } else if (child.type !== ParseNodeType.Token) {
+          // Only build non-Token nodes
           const element = this.build(child);
           if (element instanceof Expression) {
             elements.push(element);
