@@ -152,3 +152,21 @@ test("AST builder should handle array with object [{}]", () => {
   
   expect(ast.nodeType).toBe('ArrayLiteral');
 });
+
+test("Parser should throw error for unknown characters", () => {
+  const lexer = new Lexer();
+  const tokens = lexer.tokenize('$');
+  const grammar = createReplGrammar();
+  const parser = new RecursiveDescentParser(tokens, grammar, 'expression');
+  
+  expect(() => parser.parse()).toThrow("Unexpected character '$' at position 0");
+});
+
+test("Parser should throw error for unconsumed tokens", () => {
+  const lexer = new Lexer();
+  const tokens = lexer.tokenize('[]6');
+  const grammar = createReplGrammar();
+  const parser = new RecursiveDescentParser(tokens, grammar, 'expression');
+  
+  expect(() => parser.parse()).toThrow("Unexpected token '6' of type NUMBER at position 2. Expected end of input.");
+});

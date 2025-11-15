@@ -231,8 +231,33 @@ export class RecursiveDescentParser {
 
   parse(): ParseNode {
     this.skipWhitespace();
+    
+    // Check for unknown tokens at the start
+    const current = this.currentToken();
+    if (current && current.type === 'UNKNOWN' as any) {
+      throw new ParseException(`Unexpected character '${current.value}' at position ${current.position}`);
+    }
+    
     const result = this.parseRule(this.startRule);
-    return result ?? new ParseNode(ParseNodeType.Program);
+    
+    // If parsing failed, throw an error
+    if (!result) {
+      const token = this.currentToken();
+      if (token) {
+        throw new ParseException(`Unexpected token '${token.value}' of type ${token.type} at position ${token.position}`);
+      } else {
+        throw new ParseException('Failed to parse input');
+      }
+    }
+    
+    // Check for unconsumed tokens (except whitespace and EOF)
+    this.skipWhitespace();
+    const remaining = this.currentToken();
+    if (remaining && remaining.type !== 'EOF' as any) {
+      throw new ParseException(`Unexpected token '${remaining.value}' of type ${remaining.type} at position ${remaining.position}. Expected end of input.`);
+    }
+    
+    return result;
   }
 
   parseRule(ruleName: string): ParseNode | null {
@@ -357,7 +382,14 @@ export class RecursiveDescentParser {
   }
 
   private parseTerminal(terminal: Terminal): ParseNode | null {
-    if (!this.check(terminal.tokenType)) return null;
+    if (!this.check(terminal.tokenType)) {
+      // Check if we hit an unknown token
+      const current = this.currentToken();
+      if (current && current.type === 'UNKNOWN' as any) {
+        throw new ParseException(`Unexpected character '${current.value}' at position ${current.position}`);
+      }
+      return null;
+    }
     const token = this.advance();
     return new ParseNode(terminal.nodeType ?? ParseNodeType.Token, token);
   }
