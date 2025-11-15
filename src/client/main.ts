@@ -223,10 +223,10 @@ class REPL {
         const exprStr = expressionToCode(binding.expression)
         const varItem = _div({ class: 'env-variable' }, [
           _elem('span', { class: 'env-var-name' }, [name]),
-          _elem('span', { class: 'env-var-separator' }, [' = ']),
-          _elem('span', { class: 'env-var-expression' }, [exprStr]),
-          _elem('span', { class: 'env-var-separator' }, [' → ']),
-          _elem('span', { class: 'env-var-value' }, [valueStr])
+          _elem('span', { class: 'env-var-separator' }, [': ']),
+          _elem('span', { class: 'env-var-value' }, [valueStr]),
+          _elem('span', { class: 'env-var-separator' }, [' <- ']),
+          _elem('span', { class: 'env-var-expression' }, [exprStr])
         ])
         varsList.appendChild(varItem)
       } else {

@@ -1,5 +1,6 @@
 # To-Do
 
+* Prevent missing/circular references
 * Refactoring
 * Auto-logout
 * Backups in folder
