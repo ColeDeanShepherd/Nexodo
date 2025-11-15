@@ -624,15 +624,25 @@ export class Interpreter {
   loadEnvironment(serializedBindings: Record<string, any>): void {
     const deserializedBindings = this.deserializeBindings(serializedBindings);
     
-    // Apply the loaded bindings to current environment
+    // PASS 1: Add all bindings to the environment without evaluating
+    // This allows forward references and circular dependencies to work
     for (const [name, value] of deserializedBindings) {
-      // If the value is an Expression (unevaluated), evaluate it and store both
       if (value instanceof Expression) {
-        const evaluatedValue = this.evaluateNode(value);
-        this.environment.define(name, evaluatedValue, value);
+        // Store the expression but with a placeholder value (the expression itself)
+        this.environment.define(name, value, value);
       } else {
-        // For evaluated values, store without an expression
+        // For already-evaluated values, store them directly
         this.environment.define(name, value);
+      }
+    }
+    
+    // PASS 2: Evaluate all expressions now that all names are bound
+    for (const [name, value] of deserializedBindings) {
+      if (value instanceof Expression) {
+        // Now evaluate the expression with all bindings available
+        const evaluatedValue = this.evaluateNode(value);
+        // Update the binding with the evaluated value, keeping the expression
+        this.environment.set(name, evaluatedValue, value);
       }
     }
   }
