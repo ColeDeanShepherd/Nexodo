@@ -1,6 +1,7 @@
 # To-Do
 
 * Refactoring
+* Auto-logout
 * Backups in folder
 * Show built-ins
 * Autocomplete/suggestion

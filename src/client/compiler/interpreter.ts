@@ -24,7 +24,8 @@ export type RuntimeValue =
   | null 
   | RuntimeObject 
   | RuntimeArray 
-  | RuntimeFunction;
+  | RuntimeFunction
+  | Expression;
 
 export interface RuntimeObject {
   [key: string]: RuntimeValue;
@@ -476,6 +477,9 @@ export class Interpreter {
     if (typeof value === 'number') return value.toString();
     if (typeof value === 'boolean') return value.toString();
     if (typeof value === 'function') return '[Function]';
+    if (value instanceof Expression) {
+      return this.expressionToCode(value);
+    }
     if (Array.isArray(value)) {
       return '[' + value.map(v => this.valueToString(v)).join(', ') + ']';
     }
@@ -486,6 +490,67 @@ export class Interpreter {
       return `{ ${entries} }`;
     }
     return String(value);
+  }
+
+  private expressionToCode(expr: Expression): string {
+    switch (expr.nodeType) {
+      case 'NumberLiteral':
+        return (expr as NumberLiteral).value.toString();
+      
+      case 'StringLiteral':
+        return `"${(expr as StringLiteral).value}"`;
+      
+      case 'BooleanLiteral':
+        return (expr as BooleanLiteral).value.toString();
+      
+      case 'NullLiteral':
+        return 'null';
+      
+      case 'Identifier':
+        return (expr as Identifier).name;
+      
+      case 'ArrayLiteral': {
+        const node = expr as ArrayLiteral;
+        const elements = node.elements.map(elem => this.expressionToCode(elem)).join(', ');
+        return `[${elements}]`;
+      }
+      
+      case 'ObjectLiteral': {
+        const node = expr as ObjectLiteral;
+        const props = node.properties.map(prop => {
+          const key = typeof prop.key === 'string' 
+            ? prop.key 
+            : this.expressionToCode(prop.key as Expression);
+          const value = this.expressionToCode(prop.value);
+          return `${key}: ${value}`;
+        }).join(', ');
+        return `{ ${props} }`;
+      }
+      
+      case 'FunctionCall': {
+        const node = expr as FunctionCall;
+        const callee = this.expressionToCode(node.callee);
+        const args = node.args.map(arg => this.expressionToCode(arg)).join(', ');
+        return `${callee}(${args})`;
+      }
+      
+      case 'MemberAccess': {
+        const node = expr as MemberAccess;
+        const object = this.expressionToCode(node.object);
+        const property = this.expressionToCode(node.property);
+        return `${object}.${property}`;
+      }
+      
+      case 'ArrayAccess': {
+        const node = expr as ArrayAccess;
+        const object = this.expressionToCode(node.object);
+        const index = this.expressionToCode(node.index);
+        return `${object}[${index}]`;
+      }
+      
+      default:
+        return `[Unknown: ${expr.nodeType}]`;
+    }
   }
 
   getEnvironment(): RuntimeEnvironment {
@@ -560,6 +625,15 @@ export class Interpreter {
       return { type: 'function', value: '[Function - not serializable]' };
     }
 
+    // Check if it's an Expression (AST node) before checking Array
+    // because Expression objects may have properties
+    if (value instanceof Expression) {
+      return {
+        type: 'expression',
+        value: this.serializeExpression(value)
+      };
+    }
+
     if (Array.isArray(value)) {
       return {
         type: 'array',
@@ -579,6 +653,72 @@ export class Interpreter {
     }
 
     return { type: 'unknown', value: String(value) };
+  }
+
+  private serializeExpression(expr: Expression): any {
+    const nodeType = expr.nodeType;
+    const result: any = { nodeType };
+
+    switch (nodeType) {
+      case 'NumberLiteral': {
+        const node = expr as NumberLiteral;
+        result.value = node.value;
+        break;
+      }
+      case 'StringLiteral': {
+        const node = expr as StringLiteral;
+        result.value = node.value;
+        break;
+      }
+      case 'BooleanLiteral': {
+        const node = expr as BooleanLiteral;
+        result.value = node.value;
+        break;
+      }
+      case 'NullLiteral':
+        // No additional properties needed
+        break;
+      case 'Identifier': {
+        const node = expr as Identifier;
+        result.name = node.name;
+        break;
+      }
+      case 'ObjectLiteral': {
+        const node = expr as ObjectLiteral;
+        result.properties = node.properties.map(prop => ({
+          key: typeof prop.key === 'string' ? prop.key : this.serializeExpression(prop.key as Expression),
+          value: this.serializeExpression(prop.value)
+        }));
+        break;
+      }
+      case 'ArrayLiteral': {
+        const node = expr as ArrayLiteral;
+        result.elements = node.elements.map(elem => this.serializeExpression(elem));
+        break;
+      }
+      case 'FunctionCall': {
+        const node = expr as FunctionCall;
+        result.callee = this.serializeExpression(node.callee);
+        result.args = node.args.map(arg => this.serializeExpression(arg));
+        break;
+      }
+      case 'MemberAccess': {
+        const node = expr as MemberAccess;
+        result.object = this.serializeExpression(node.object);
+        result.property = this.serializeExpression(node.property);
+        break;
+      }
+      case 'ArrayAccess': {
+        const node = expr as ArrayAccess;
+        result.object = this.serializeExpression(node.object);
+        result.index = this.serializeExpression(node.index);
+        break;
+      }
+      default:
+        throw new Error(`Unsupported expression type for serialization: ${nodeType}`);
+    }
+
+    return result;
   }
 
   // Deserialize JSON data back to runtime values
@@ -615,6 +755,9 @@ export class Interpreter {
         // Functions cannot be deserialized, return null
         return null;
 
+      case 'expression':
+        return this.deserializeExpression(serialized.value);
+
       case 'array':
         if (Array.isArray(serialized.value)) {
           return serialized.value.map((item: any) => this.deserializeValue(item));
@@ -635,6 +778,68 @@ export class Interpreter {
         return null;
     }
   }
+
+  private deserializeExpression(serialized: any): Expression {
+    if (!serialized || !serialized.nodeType) {
+      throw new Error('Invalid serialized expression: missing nodeType');
+    }
+
+    const nodeType = serialized.nodeType;
+    // Create a dummy token for deserialized nodes
+    const dummyToken: any = { type: 'DESERIALIZED', value: '', line: 0, column: 0 };
+
+    switch (nodeType) {
+      case 'NumberLiteral':
+        return new NumberLiteral(serialized.value, dummyToken);
+
+      case 'StringLiteral':
+        return new StringLiteral(serialized.value, dummyToken);
+
+      case 'BooleanLiteral':
+        return new BooleanLiteral(serialized.value, dummyToken);
+
+      case 'NullLiteral':
+        return new NullLiteral(dummyToken);
+
+      case 'Identifier':
+        return new Identifier(serialized.name, dummyToken);
+
+      case 'ObjectLiteral': {
+        const properties = serialized.properties.map((prop: any) => {
+          const key = typeof prop.key === 'string' ? prop.key : this.deserializeExpression(prop.key);
+          const value = this.deserializeExpression(prop.value);
+          return new ObjectProperty(key, value);
+        });
+        return new ObjectLiteral(properties);
+      }
+
+      case 'ArrayLiteral': {
+        const elements = serialized.elements.map((elem: any) => this.deserializeExpression(elem));
+        return new ArrayLiteral(elements);
+      }
+
+      case 'FunctionCall': {
+        const callee = this.deserializeExpression(serialized.callee);
+        const args = serialized.args.map((arg: any) => this.deserializeExpression(arg));
+        return new FunctionCall(callee, args);
+      }
+
+      case 'MemberAccess': {
+        const object = this.deserializeExpression(serialized.object);
+        const property = this.deserializeExpression(serialized.property) as Identifier;
+        return new MemberAccess(object, property);
+      }
+
+      case 'ArrayAccess': {
+        const object = this.deserializeExpression(serialized.object);
+        const index = this.deserializeExpression(serialized.index);
+        return new ArrayAccess(object, index);
+      }
+
+      default:
+        throw new Error(`Unsupported expression type for deserialization: ${nodeType}`);
+    }
+  }
 }
 
 // Utility functions
@@ -645,6 +850,10 @@ export function formatRuntimeValue(value: RuntimeValue): string {
   if (typeof value === 'number') return value.toString();
   if (typeof value === 'boolean') return value.toString();
   if (typeof value === 'function') return '[Function]';
+  
+  if (value instanceof Expression) {
+    return expressionToCode(value);
+  }
   
   if (Array.isArray(value)) {
     const elements = value.map(formatRuntimeValue).join(', ');
@@ -661,14 +870,67 @@ export function formatRuntimeValue(value: RuntimeValue): string {
   return String(value);
 }
 
+export function expressionToCode(expr: Expression): string {
+  switch (expr.nodeType) {
+    case 'NumberLiteral':
+      return (expr as NumberLiteral).value.toString();
+    
+    case 'StringLiteral':
+      return `"${(expr as StringLiteral).value}"`;
+    
+    case 'BooleanLiteral':
+      return (expr as BooleanLiteral).value.toString();
+    
+    case 'NullLiteral':
+      return 'null';
+    
+    case 'Identifier':
+      return (expr as Identifier).name;
+    
+    case 'ArrayLiteral': {
+      const node = expr as ArrayLiteral;
+      const elements = node.elements.map(elem => expressionToCode(elem)).join(', ');
+      return `[${elements}]`;
+    }
+    
+    case 'ObjectLiteral': {
+      const node = expr as ObjectLiteral;
+      const props = node.properties.map(prop => {
+        const key = typeof prop.key === 'string' 
+          ? prop.key 
+          : expressionToCode(prop.key as Expression);
+        const value = expressionToCode(prop.value);
+        return `${key}: ${value}`;
+      }).join(', ');
+      return `{ ${props} }`;
+    }
+    
+    case 'FunctionCall': {
+      const node = expr as FunctionCall;
+      const callee = expressionToCode(node.callee);
+      const args = node.args.map(arg => expressionToCode(arg)).join(', ');
+      return `${callee}(${args})`;
+    }
+    
+    case 'MemberAccess': {
+      const node = expr as MemberAccess;
+      const object = expressionToCode(node.object);
+      const property = expressionToCode(node.property);
+      return `${object}.${property}`;
+    }
+    
+    case 'ArrayAccess': {
+      const node = expr as ArrayAccess;
+      const object = expressionToCode(node.object);
+      const index = expressionToCode(node.index);
+      return `${object}[${index}]`;
+    }
+    
+    default:
+      return `[Unknown: ${expr.nodeType}]`;
+  }
+}
+
 export function formatRuntimeError(error: RuntimeError): string {
   return `Runtime Error: ${error.message}`;
 }
-
-// Usage example:
-// const interpreter = new Interpreter();
-// const result = interpreter.interpret(ast);
-// console.log('Result:', formatRuntimeValue(result.value));
-// if (result.errors.length > 0) {
-//   console.log('Errors:', result.errors.map(formatRuntimeError));
-// }
