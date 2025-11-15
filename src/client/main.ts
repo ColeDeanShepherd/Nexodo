@@ -219,7 +219,7 @@ class REPL {
       const valueStr = formatRuntimeValue(binding.value)
       
       // If there's an expression, show both the expression and the evaluated value
-      if (binding.expression) {
+      if (binding.expression && (binding.value !== binding.expression)) {
         const exprStr = expressionToCode(binding.expression)
         const varItem = _div({ class: 'env-variable' }, [
           _elem('span', { class: 'env-var-name' }, [name]),
