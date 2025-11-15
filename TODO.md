@@ -1,9 +1,10 @@
 # To-Do
 
+* Fix runtime error
+* Evaluate in correct order based on dependency graph? Or just lazy eval.
 * Prevent missing/circular references
 * Refactoring
 * Auto-logout
-* Backups in folder
 * Show built-ins
 * Autocomplete/suggestion
 * Quoting strings
