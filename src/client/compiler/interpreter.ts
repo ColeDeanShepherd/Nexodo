@@ -261,6 +261,8 @@ export class Interpreter {
       const identifier = node.target as Identifier;
       // Store both the evaluated value and the original expression
       this.environment.set(identifier.name, value, node.value);
+      // Re-evaluate all other bindings since they might depend on this one
+      this.reevaluateAllBindings();
       return value;
     }
 
@@ -586,6 +588,24 @@ export class Interpreter {
 
   getOutput(): string[] {
     return [...this.output];
+  }
+
+  // Re-evaluate all bindings that have expressions
+  reevaluateAllBindings(): void {
+    const allBindings = this.environment.getAllBindingsWithExpressions();
+    
+    for (const [name, binding] of allBindings) {
+      // If this binding has an expression, re-evaluate it
+      if (binding.expression) {
+        try {
+          const newValue = this.evaluateNode(binding.expression);
+          this.environment.set(name, newValue, binding.expression);
+        } catch (error) {
+          // If evaluation fails, keep the old value
+          console.warn(`Failed to re-evaluate binding '${name}':`, error);
+        }
+      }
+    }
   }
 
   // Save user-defined bindings to serializable format
