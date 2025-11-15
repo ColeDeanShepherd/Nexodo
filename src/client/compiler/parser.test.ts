@@ -45,3 +45,64 @@ test("Parser should parse assignment with empty object", () => {
   const value = parseTree!.children[1];
   expect(value.type).toBe(ParseNodeType.Object);
 });
+
+test("Parser should parse Math.abs member access", () => {
+  const lexer = new Lexer();
+  const tokens = lexer.tokenize('Math.abs');
+  const grammar = createReplGrammar();
+  const parser = new RecursiveDescentParser(tokens, grammar, 'expression');
+  
+  const parseTree = parser.parseRule('expression');
+  
+  expect(parseTree).not.toBeNull();
+  expect(parseTree!.type).toBe(ParseNodeType.MemberAccess);
+  expect(parseTree!.token?.value).toBe('.');
+  
+  // Member access should have 2 children: Math and abs
+  expect(parseTree!.children).toHaveLength(2);
+  const objectExpr = parseTree!.children[0];
+  const propertyExpr = parseTree!.children[1];
+  expect(objectExpr.type).toBe(ParseNodeType.Identifier);
+  expect(objectExpr.token?.value).toBe('Math');
+  expect(propertyExpr.type).toBe(ParseNodeType.Identifier);
+  expect(propertyExpr.token?.value).toBe('abs');
+});
+
+test("Parser should parse Math.abs(1)", () => {
+  const lexer = new Lexer();
+  const tokens = lexer.tokenize('Math.abs(1)');
+  const grammar = createReplGrammar();
+  const parser = new RecursiveDescentParser(tokens, grammar, 'expression');
+  
+  const parseTree = parser.parseRule('expression');
+  
+  expect(parseTree).not.toBeNull();
+  expect(parseTree!.type).toBe(ParseNodeType.FunctionCall);
+  
+  // Function call should have 2 children: function expression and arguments
+  expect(parseTree!.children).toHaveLength(2);
+  
+  // First child should be the member access (Math.abs)
+  const functionExpr = parseTree!.children[0];
+  expect(functionExpr.type).toBe(ParseNodeType.MemberAccess);
+  expect(functionExpr.token?.value).toBe('.');
+  
+  // Member access should have 2 children: Math and abs
+  expect(functionExpr.children).toHaveLength(2);
+  const objectExpr = functionExpr.children[0];
+  const propertyExpr = functionExpr.children[1];
+  expect(objectExpr.type).toBe(ParseNodeType.Identifier);
+  expect(objectExpr.token?.value).toBe('Math');
+  expect(propertyExpr.type).toBe(ParseNodeType.Identifier);
+  expect(propertyExpr.token?.value).toBe('abs');
+  
+  // Second child should be the arguments array with one element
+  const args = parseTree!.children[1];
+  expect(args.type).toBe(ParseNodeType.Array);
+  expect(args.children).toHaveLength(1);
+  
+  // The argument should be the number 1
+  const arg = args.children[0];
+  expect(arg.type).toBe(ParseNodeType.Literal);
+  expect(arg.token?.value).toBe('1');
+});

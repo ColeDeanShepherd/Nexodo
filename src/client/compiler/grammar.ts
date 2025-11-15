@@ -50,16 +50,16 @@ export function createReplGrammar(): Record<string, GrammarRule> {
     },
 
     // Member access: x.property
-    // High precedence (binding power 90), left-associative
+    // Highest precedence (binding power 110), left-associative
     {
       type: OperatorType.INFIX,
       tokenType: TokenType.DOT,
-      leftBindingPower: 90,
-      rightBindingPower: 91,
+      leftBindingPower: 110,
+      rightBindingPower: 111,
       buildNode: (parser, left, operator, right) => {
         // Right side should be an identifier
         if (right.type !== ParseNodeType.Identifier) {
-          throw new Error('Member access requires an identifier after dot');
+          throw new Error(`Member access requires an identifier after dot. Got ${right.type}`);
         }
         const node = new ParseNode(ParseNodeType.MemberAccess, operator);
         node.addChild(left);
