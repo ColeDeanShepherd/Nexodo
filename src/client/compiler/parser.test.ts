@@ -27,20 +27,21 @@ test("Parser should parse assignment with empty object", () => {
   const grammar = createReplGrammar();
   const parser = new RecursiveDescentParser(tokens, grammar, 'expression');
   
-  const parseTree = parser.parseRule('assignment');
+  const parseTree = parser.parseRule('expression');
   
   expect(parseTree).not.toBeNull();
   expect(parseTree!.type).toBe(ParseNodeType.Assignment);
   
-  // Should have 3 children: identifier, :, object
-  expect(parseTree!.children).toHaveLength(3);
+  // With Pratt parser: Assignment has 2 children (target, value) and operator is in the token
+  expect(parseTree!.children).toHaveLength(2);
+  expect(parseTree!.token?.value).toBe(':');
   
   // First child should be the identifier 'mom'
   const target = parseTree!.children[0];
   expect(target.type).toBe(ParseNodeType.Identifier);
   expect(target.token?.value).toBe('mom');
   
-  // Third child should be the empty object
-  const value = parseTree!.children[2];
+  // Second child should be the empty object
+  const value = parseTree!.children[1];
   expect(value.type).toBe(ParseNodeType.Object);
 });

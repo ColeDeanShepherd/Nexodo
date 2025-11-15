@@ -10,130 +10,17 @@ import {
   Optional,
   ZeroOrMore,
   OneOrMore,
-  PostfixOperations,
-  PostfixOperation,
-  GrammarRule
+  GrammarRule,
+  PrattExpression,
+  OperatorType,
+  PrattOperator
 } from './parser';
-
-// Helper functions for building specific node types
-function buildFunctionCall(parser: RecursiveDescentParser, left: ParseNode): ParseNode {
-  parser.advance(); // consume '('
-  
-  // Parse arguments
-  const args = new ParseNode(ParseNodeType.Array);
-  
-  // Handle empty argument list
-  if (parser.check(TokenType.RPAREN)) {
-    parser.advance(); // consume ')'
-    const funcCall = new ParseNode(ParseNodeType.FunctionCall);
-    funcCall.addChild(left);
-    funcCall.addChild(args);
-    return funcCall;
-  }
-  
-  // Parse first argument
-  const firstArg = parser.parseRule('non_binding_expression');
-  if (!firstArg) {
-    throw new Error('Expected argument expression');
-  }
-  args.addChild(firstArg);
-  
-  // Parse additional arguments separated by commas
-  while (parser.check(TokenType.COMMA)) {
-    parser.advance(); // consume ','
-    
-    // Parse next argument
-    const arg = parser.parseRule('non_binding_expression');
-    if (!arg) {
-      throw new Error('Expected argument expression after comma');
-    }
-    args.addChild(arg);
-  }
-  
-  // Expect closing parenthesis
-  if (!parser.check(TokenType.RPAREN)) {
-    throw new Error('Expected closing parenthesis after function arguments');
-  }
-  parser.advance(); // consume ')'
-
-  const funcCall = new ParseNode(ParseNodeType.FunctionCall);
-  funcCall.addChild(left);
-  funcCall.addChild(args);
-  return funcCall;
-}
-
-function buildMemberAccess(parser: RecursiveDescentParser, left: ParseNode): ParseNode {
-  parser.advance(); // consume '.'
-  
-  // Expect an identifier after the dot
-  if (!parser.check(TokenType.IDENTIFIER)) {
-    throw new Error('Expected identifier after dot');
-  }
-  
-  const identifier = parser.advance();
-  const identifierNode = new ParseNode(ParseNodeType.Identifier, identifier);
-  
-  const memberAccess = new ParseNode(ParseNodeType.MemberAccess);
-  memberAccess.addChild(left);
-  memberAccess.addChild(identifierNode);
-  
-  return memberAccess;
-}
-
-function buildArrayAccess(parser: RecursiveDescentParser, left: ParseNode): ParseNode {
-  parser.advance(); // consume '['
-  
-  // Parse the index expression
-  const indexExpr = parser.parseRule('non_binding_expression');
-  if (!indexExpr) {
-    throw new Error('Expected index expression');
-  }
-  
-  // Expect closing bracket
-  if (!parser.check(TokenType.RBRACKET)) {
-    throw new Error('Expected closing bracket after array index');
-  }
-  parser.advance(); // consume ']'
-  
-  const arrayAccess = new ParseNode(ParseNodeType.ArrayAccess);
-  arrayAccess.addChild(left);
-  arrayAccess.addChild(indexExpr);
-  
-  return arrayAccess;
-}
 
 // Grammar definition for REPL
 export function createReplGrammar(): Record<string, GrammarRule> {
   const grammar: Record<string, GrammarRule> = {};
 
-  // Main expression rule - handles both bindings and other expressions
-  grammar['expression'] = new Choice(
-    new NonTerminal('assignment'), 
-    new NonTerminal('non_binding_expression')
-  );
-
-  // Assignment: postfix_expression : expression (covers all assignable expressions)
-  grammar['assignment'] = new Sequence(
-    ParseNodeType.Assignment,
-    new NonTerminal('postfix_expression'),
-    new Terminal(TokenType.COLON),
-    new NonTerminal('non_binding_expression')
-  );
-
-  // Non-binding expressions
-  grammar['non_binding_expression'] = new NonTerminal('postfix_expression');
-
-  // Postfix operations (function calls, member access, and array indexing)
-  grammar['postfix_expression'] = new PostfixOperations(
-    new NonTerminal('primary'),
-    [
-      { triggerToken: TokenType.LPAREN, buildNode: buildFunctionCall },
-      { triggerToken: TokenType.DOT, buildNode: buildMemberAccess },
-      { triggerToken: TokenType.LBRACKET, buildNode: buildArrayAccess }
-    ]
-  );
-
-  // Primary expressions
+  // Primary expressions (atoms)
   grammar['primary'] = new Choice(
     new Terminal(TokenType.NUMBER, ParseNodeType.Literal),
     new Terminal(TokenType.STRING, ParseNodeType.Literal),  
@@ -143,6 +30,137 @@ export function createReplGrammar(): Record<string, GrammarRule> {
     new NonTerminal('object'),
     new NonTerminal('array')
   );
+
+  // Define operators for the Pratt parser
+  const operators: PrattOperator[] = [
+    // Assignment operator: x : value
+    // Lowest precedence (binding power 5), right-associative
+    {
+      type: OperatorType.INFIX,
+      tokenType: TokenType.COLON,
+      leftBindingPower: 5,
+      rightBindingPower: 4, // Right-associative
+      buildNode: (parser, left, operator, right) => {
+        const node = new ParseNode(ParseNodeType.Assignment, operator);
+        node.addChild(left);
+        node.addChild(right);
+        return node;
+      }
+    },
+
+    // Member access: x.property
+    // High precedence (binding power 90), left-associative
+    {
+      type: OperatorType.INFIX,
+      tokenType: TokenType.DOT,
+      leftBindingPower: 90,
+      rightBindingPower: 91,
+      buildNode: (parser, left, operator, right) => {
+        // Right side should be an identifier
+        if (right.type !== ParseNodeType.Identifier) {
+          throw new Error('Member access requires an identifier after dot');
+        }
+        const node = new ParseNode(ParseNodeType.MemberAccess, operator);
+        node.addChild(left);
+        node.addChild(right);
+        return node;
+      }
+    },
+
+    // Function application: f(args...)
+    // Highest precedence (binding power 100), postfix
+    {
+      type: OperatorType.POSTFIX,
+      tokenType: TokenType.LPAREN,
+      leftBindingPower: 100,
+      buildNode: (parser, left, operator) => {
+        // Parse arguments
+        const args = new ParseNode(ParseNodeType.Array);
+        
+        parser.skipWhitespace();
+        
+        // Handle empty argument list
+        if (parser.check(TokenType.RPAREN)) {
+          parser.advance(); // consume ')'
+          const funcCall = new ParseNode(ParseNodeType.FunctionCall);
+          funcCall.addChild(left);
+          funcCall.addChild(args);
+          return funcCall;
+        }
+        
+        // Parse first argument (using the expression rule)
+        const firstArg = parser.parseRule('expression');
+        if (!firstArg) {
+          throw new Error('Expected argument expression');
+        }
+        args.addChild(firstArg);
+        
+        parser.skipWhitespace();
+        
+        // Parse additional arguments separated by commas
+        while (parser.check(TokenType.COMMA)) {
+          parser.advance(); // consume ','
+          parser.skipWhitespace();
+          
+          // Parse next argument
+          const arg = parser.parseRule('expression');
+          if (!arg) {
+            throw new Error('Expected argument expression after comma');
+          }
+          args.addChild(arg);
+          parser.skipWhitespace();
+        }
+        
+        // Expect closing parenthesis
+        if (!parser.check(TokenType.RPAREN)) {
+          throw new Error('Expected closing parenthesis after function arguments');
+        }
+        parser.advance(); // consume ')'
+
+        const funcCall = new ParseNode(ParseNodeType.FunctionCall);
+        funcCall.addChild(left);
+        funcCall.addChild(args);
+        return funcCall;
+      }
+    },
+
+    // Array access: arr[index]
+    // Highest precedence (binding power 100), postfix
+    {
+      type: OperatorType.POSTFIX,
+      tokenType: TokenType.LBRACKET,
+      leftBindingPower: 100,
+      buildNode: (parser, left, operator) => {
+        parser.skipWhitespace();
+        
+        // Parse the index expression
+        const indexExpr = parser.parseRule('expression');
+        if (!indexExpr) {
+          throw new Error('Expected index expression');
+        }
+        
+        parser.skipWhitespace();
+        
+        // Expect closing bracket
+        if (!parser.check(TokenType.RBRACKET)) {
+          throw new Error('Expected closing bracket after array index');
+        }
+        parser.advance(); // consume ']'
+        
+        const arrayAccess = new ParseNode(ParseNodeType.ArrayAccess);
+        arrayAccess.addChild(left);
+        arrayAccess.addChild(indexExpr);
+        
+        return arrayAccess;
+      }
+    }
+  ];
+
+  // Main expression rule using Pratt parser
+  grammar['expression'] = new PrattExpression({
+    baseExpressionRule: new NonTerminal('primary'),
+    operators: operators
+  });
 
   // Object literal: { key: value, ... }
   grammar['object'] = new Sequence(
@@ -176,7 +194,7 @@ export function createReplGrammar(): Record<string, GrammarRule> {
       new Terminal(TokenType.STRING, ParseNodeType.Literal)
     ),
     new Terminal(TokenType.COLON),
-    new NonTerminal('non_binding_expression')
+    new NonTerminal('expression')
   );
 
   // Array literal: [value, ...]  
@@ -189,15 +207,15 @@ export function createReplGrammar(): Record<string, GrammarRule> {
 
   // Array element list: element or element, element, ...
   grammar['array_element_list'] = new Choice(
-    new NonTerminal('non_binding_expression'),
+    new NonTerminal('expression'),
     new Sequence(
       ParseNodeType.Token,
-      new NonTerminal('non_binding_expression'),
+      new NonTerminal('expression'),
       new OneOrMore(
         new Sequence(
           ParseNodeType.Token,
           new Terminal(TokenType.COMMA),
-          new NonTerminal('non_binding_expression')
+          new NonTerminal('expression')
         )
       )
     )
