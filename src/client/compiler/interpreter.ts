@@ -617,6 +617,26 @@ export class Interpreter {
               })
             ]
           );
+        case 'removeAt':
+          return new Function(
+            [new Parameter('index', NUMBER_TYPE)],
+            [
+              new BuiltInCodeNode(() => {
+                const indexExpr = this.environment.get('index');
+                if (indexExpr.nodeType !== 'NumberLiteral') {
+                  throw new RuntimeError(`Index must be a number, got ${indexExpr.nodeType}`);
+                }
+                const index = (indexExpr as NumberLiteral).value;
+                if (index < 0 || index >= arrayLiteral.elements.length) {
+                  throw new RuntimeError(`Index ${index} out of bounds for array of length ${arrayLiteral.elements.length}`);
+                }
+                arrayLiteral.elements.splice(index, 1);
+                return new NullLiteral();
+                // const newElements = arrayLiteral.elements.filter((_, i) => i !== index);
+                // return new ArrayLiteral(newElements);
+              })
+            ]
+          );
         default:
           if (!allowUndefined) {
             throw new RuntimeError(`Property '${propertyName}' does not exist on array`, node);

@@ -91,6 +91,9 @@ export class ArrayType extends Type {
       case 'pop':
         // pop returns the element type or undefined
         return new FunctionType([], this.elementType);
+      case 'removeAt':
+        // removeAt takes an index (number) and returns the element type
+        return new FunctionType([NUMBER_TYPE], this.elementType);
       case 'length':
         return NUMBER_TYPE;
       default:
