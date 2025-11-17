@@ -15,7 +15,7 @@ import {
   ArrayAccess,
   Program
 } from './ast';
-import { RuntimeEnvironment, RuntimeValue } from './interpreter';
+import { RuntimeEnvironment } from './interpreter';
 
 // Type system
 export abstract class Type {
@@ -216,39 +216,41 @@ export class TypeChecker {
   }
 
   // Infer static type from runtime value
-  private inferTypeFromRuntimeValue(value: RuntimeValue): Type {
+  private inferTypeFromRuntimeValue(value: Expression): Type {
     if (value === null || value === undefined) {
       return NULL_TYPE;
     }
     
-    if (typeof value === 'number') {
+    if (value.nodeType === 'NumberLiteral') {
       return NUMBER_TYPE;
     }
-    
-    if (typeof value === 'string') {
+
+    if (value.nodeType === 'StringLiteral') {
       return STRING_TYPE;
     }
-    
-    if (typeof value === 'boolean') {
+
+    if (value.nodeType === 'BooleanLiteral') {
       return BOOLEAN_TYPE;
     }
-    
-    if (typeof value === 'function') {
+
+    if (value.nodeType === 'Function') {
       // For functions, we can't easily infer the exact signature from runtime
       // so we'll use a generic unknown->unknown function type
       return new FunctionType([UNKNOWN_TYPE], UNKNOWN_TYPE);
     }
     
-    if (Array.isArray(value)) {
+    if (value.nodeType === 'ArrayLiteral') {
       // Infer array element type from first element, or unknown if empty
-      const elementType = value.length > 0 ? this.inferTypeFromRuntimeValue(value[0]) : UNKNOWN_TYPE;
+      const arrayLiteral = value as ArrayLiteral;
+      const elementType = arrayLiteral.elements.length > 0 ? this.inferTypeFromRuntimeValue(arrayLiteral.elements[0]) : UNKNOWN_TYPE;
       return new ArrayType(elementType);
     }
-    
-    if (typeof value === 'object') {
+
+    if (value.nodeType === 'ObjectLiteral') {
+      const objectLiteral = value as ObjectLiteral;
       const properties = new Map<string, Type>();
-      for (const [key, val] of Object.entries(value)) {
-        properties.set(key, this.inferTypeFromRuntimeValue(val));
+      for (const prop of objectLiteral.properties) {
+        properties.set(prop.key as string, this.inferTypeFromRuntimeValue(prop.value));
       }
       return new ObjectType(properties);
     }
