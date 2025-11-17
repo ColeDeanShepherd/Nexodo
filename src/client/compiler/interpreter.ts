@@ -51,6 +51,10 @@ export class RuntimeEnvironment {
     this.bindings.set(name, { value, expression });
   }
 
+  getParent(): RuntimeEnvironment | undefined {
+    return this.parent;
+  }
+
   get(name: string): Expression {
     const binding = this.bindings.get(name);
     if (binding !== undefined) {
@@ -450,24 +454,30 @@ export class Interpreter {
     const args = node.args.map(arg => this.evaluateNode(arg));
     const funcNode = callee as Function;
 
-    // create new RuntimeEnvironment for function call
-    const funcEnv = this.environment.createChild();
+    // Push new environment for function call
+    this.pushEnvironment();
 
-    // Bind function parameters to arguments
-    for (const [i, param] of funcNode.parameters.entries()) {
-      const arg = args[i];
-      funcEnv.set(param.name, arg);
+    try {
+      // Bind function parameters to arguments
+      for (const [i, param] of funcNode.parameters.entries()) {
+        const arg = args[i];
+        this.environment.set(param.name, arg);
+      }
+
+      // Evaluate function body in new environment
+      const result = this.evaluateBlock(funcNode.body);
+      return result;
+    } finally {
+      // Always pop environment, even if an error occurred
+      this.popEnvironment();
     }
-
-    // Evaluate function body in new environment
-    return this.evaluateBlock(funcNode.body, funcEnv);
   }
 
-  private evaluateBlock(statements: ASTNode[], env: RuntimeEnvironment): Expression {
+  private evaluateBlock(statements: ASTNode[]): Expression {
     let lastValue: Expression = new NullLiteral();
 
     for (const stmt of statements) {
-      lastValue = this.evaluateNode(stmt, env);
+      lastValue = this.evaluateNode(stmt);
     }
 
     return lastValue;
@@ -659,6 +669,17 @@ export class Interpreter {
 
   getEnvironment(): RuntimeEnvironment {
     return this.environment;
+  }
+
+  pushEnvironment(): void {
+    this.environment = this.environment.createChild();
+  }
+
+  popEnvironment(): void {
+    if (!this.environment.getParent()) {
+      throw new RuntimeError('Cannot pop root environment');
+    }
+    this.environment = this.environment.getParent()!;
   }
 
   getOutput(): string[] {
