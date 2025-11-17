@@ -153,27 +153,13 @@ export class Interpreter {
     ]);
     
     // Built-in Math object
-    const mathObj: RuntimeObject = {
-      abs: (x: Expression) => {
-        if (typeof x !== 'number') {
-          throw new RuntimeError('Math.abs expects a number');
-        }
-        return Math.abs(x);
-      },
-      max: (a: Expression, b: Expression) => {
-        if (typeof a !== 'number' || typeof b !== 'number') {
-          throw new RuntimeError('Math.max expects numbers');
-        }
-        return Math.max(a, b);
-      },
-      min: (a: Expression, b: Expression) => {
-        if (typeof a !== 'number' || typeof b !== 'number') {
-          throw new RuntimeError('Math.min expects numbers');
-        }
-        return Math.min(a, b);
-      },
-      PI: Math.PI
-    };
+    const dummyToken: any = { type: 'BUILTIN', value: '', position: 0, line: 0, column: 0 };
+    const mathObj = new ObjectLiteral([
+      new ObjectProperty('abs', new Function([new Parameter('x', STRING_TYPE)], [])),
+      new ObjectProperty('max', new Function([new Parameter('a', STRING_TYPE), new Parameter('b', STRING_TYPE)], [])),
+      new ObjectProperty('min', new Function([new Parameter('a', STRING_TYPE), new Parameter('b', STRING_TYPE)], [])),
+      new ObjectProperty('PI', new NumberLiteral(Math.PI, dummyToken))
+    ]);
     
     env.define('console', consoleObj);
     env.define('Math', mathObj);
@@ -509,43 +495,26 @@ export class Interpreter {
       const member = target as MemberAccess;
       const object = this.evaluateNode(member.object);
       
-      if (object === null || object === undefined) {
+      if (object.nodeType === 'NullLiteral') {
         throw new RuntimeError('Cannot delete property of null or undefined', target);
       }
       
-      if (typeof object !== 'object') {
+      if (object.nodeType !== 'ObjectLiteral') {
         throw new RuntimeError('Cannot delete property of non-object value', target);
       }
       
-      const propertyName = member.property.name;
-      delete (object as any)[propertyName];
-      return new NullLiteral();
+      // For now, we can't modify the object in place since it's immutable
+      // This would require tracking the identifier and updating the binding
+      throw new RuntimeError('Delete on object properties not yet fully supported', target);
     }
     
     // Handle delete(arr[index]) - delete array element
     if (target.nodeType === 'ArrayAccess') {
       const arrayAccess = target as ArrayAccess;
-      const object = this.evaluateNode(arrayAccess.object);
-      const index = this.evaluateNode(arrayAccess.index);
       
-      if (!Array.isArray(object)) {
-        throw new RuntimeError('Cannot delete index from non-array value', target);
-      }
-      
-      if (typeof index !== 'number') {
-        throw new RuntimeError('Array index must be a number', target);
-      }
-      
-      const array = object as RuntimeArray;
-      const actualIndex = index < 0 ? array.length + index : index;
-      
-      if (actualIndex < 0 || actualIndex >= array.length) {
-        throw new RuntimeError(`Array index ${index} out of bounds for array of length ${array.length}`, target);
-      }
-      
-      // Use splice to remove the element
-      array.splice(actualIndex, 1);
-      return new NullLiteral();
+      // For now, we can't modify arrays in place
+      // This would require tracking the identifier and updating the binding  
+      throw new RuntimeError('Delete on array elements not yet fully supported', target);
     }
     
     throw new RuntimeError('delete expects an identifier, object property, or array element', target);
@@ -554,53 +523,43 @@ export class Interpreter {
   private evaluateMemberAccess(node: MemberAccess, allowUndefined: boolean = false): Expression {
     const object = this.evaluateNode(node.object);
     
-    if (object === null || object === undefined) {
+    if (object.nodeType === 'NullLiteral') {
       throw new RuntimeError('Cannot access property of null or undefined', node);
     }
     
     // Handle array methods
-    if (Array.isArray(object)) {
+    if (object.nodeType === 'ArrayLiteral') {
       const propertyName = node.property.name;
+      const arrayLiteral = object as ArrayLiteral;
+      const dummyToken: any = { type: 'RUNTIME', value: '', position: 0, line: 0, column: 0 };
       
       switch (propertyName) {
-        case 'add':
-        case 'push':
-          return (...items: Expression[]) => {
-            (object as RuntimeArray).push(...items);
-            return object.length;
-          };
-        case 'pop':
-          return () => {
-            const result = (object as RuntimeArray).pop();
-            return result !== undefined ? result : null;
-          };
         case 'length':
-          return object.length;
+          return new NumberLiteral(arrayLiteral.elements.length, dummyToken);
         default:
-          // Check if it's a native array method
-          const nativeMethod = (object as any)[propertyName];
-          if (typeof nativeMethod === 'function') {
-            return nativeMethod.bind(object);
-          }
           if (!allowUndefined) {
             throw new RuntimeError(`Property '${propertyName}' does not exist on array`, node);
           }
-          return null;
+          return new NullLiteral();
       }
     }
     
-    if (typeof object !== 'object') {
-      throw new RuntimeError(`Cannot access property of ${typeof object}`, node);
+    if (object.nodeType !== 'ObjectLiteral') {
+      throw new RuntimeError(`Cannot access property of ${object.nodeType}`, node);
     }
     
     const propertyName = node.property.name;
-    const value = (object as any)[propertyName];
+    const objLiteral = object as ObjectLiteral;
+    const prop = objLiteral.properties.find(p => {
+      const key = typeof p.key === 'string' ? p.key : (p.key as Identifier).name;
+      return key === propertyName;
+    });
     
-    if (value === undefined && !allowUndefined) {
+    if (!prop && !allowUndefined) {
       throw new RuntimeError(`Property '${propertyName}' does not exist`, node);
     }
     
-    return value;
+    return prop ? prop.value : new NullLiteral();
   }
 
   private evaluateArrayAccess(node: ArrayAccess): Expression {
@@ -634,25 +593,7 @@ export class Interpreter {
   }
 
   private valueToString(value: Expression): string {
-    if (value === null) return 'null';
-    if (value === undefined) return 'undefined';
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number') return value.toString();
-    if (typeof value === 'boolean') return value.toString();
-    if (typeof value === 'function') return '[Function]';
-    if (value instanceof Expression) {
-      return this.expressionToCode(value);
-    }
-    if (Array.isArray(value)) {
-      return '[' + value.map(v => this.valueToString(v)).join(', ') + ']';
-    }
-    if (typeof value === 'object') {
-      const entries = Object.entries(value)
-        .map(([key, val]) => `${key}: ${this.valueToString(val)}`)
-        .join(', ');
-      return `{ ${entries} }`;
-    }
-    return String(value);
+    return this.expressionToCode(value);
   }
 
   private expressionToCode(expr: Expression): string {
@@ -808,55 +749,11 @@ export class Interpreter {
   }
 
   private serializeValue(value: Expression): any {
-    if (value === null || value === undefined) {
-      return { type: 'null', value: null };
-    }
-
-    if (typeof value === 'number') {
-      return { type: 'number', value };
-    }
-
-    if (typeof value === 'string') {
-      return { type: 'string', value };
-    }
-
-    if (typeof value === 'boolean') {
-      return { type: 'boolean', value };
-    }
-
-    if (typeof value === 'function') {
-      // Functions cannot be serialized, skip them
-      return { type: 'function', value: '[Function - not serializable]' };
-    }
-
-    // Check if it's an Expression (AST node) before checking Array
-    // because Expression objects may have properties
-    if (value instanceof Expression) {
-      return {
-        type: 'expression',
-        value: this.serializeExpression(value)
-      };
-    }
-
-    if (Array.isArray(value)) {
-      return {
-        type: 'array',
-        value: value.map(item => this.serializeValue(item))
-      };
-    }
-
-    if (typeof value === 'object') {
-      const serializedObj: Record<string, any> = {};
-      for (const [key, val] of Object.entries(value)) {
-        serializedObj[key] = this.serializeValue(val);
-      }
-      return {
-        type: 'object',
-        value: serializedObj
-      };
-    }
-
-    return { type: 'unknown', value: String(value) };
+    // All values are now Expression types
+    return {
+      type: 'expression',
+      value: this.serializeExpression(value)
+    };
   }
 
   private serializeExpression(expr: Expression): any {
@@ -939,47 +836,50 @@ export class Interpreter {
 
   private deserializeValue(serialized: any): Expression {
     if (!serialized || typeof serialized !== 'object' || !serialized.type) {
-      return null;
+      return new NullLiteral();
     }
+
+    const dummyToken: any = { type: 'DESERIALIZED', value: '', position: 0, line: 0, column: 0 };
 
     switch (serialized.type) {
       case 'null':
-        return null;
+        return new NullLiteral();
 
       case 'number':
-        return typeof serialized.value === 'number' ? serialized.value : 0;
+        return new NumberLiteral(typeof serialized.value === 'number' ? serialized.value : 0, dummyToken);
 
       case 'string':
-        return typeof serialized.value === 'string' ? serialized.value : '';
+        return new StringLiteral(typeof serialized.value === 'string' ? serialized.value : '', dummyToken);
 
       case 'boolean':
-        return Boolean(serialized.value);
+        return new BooleanLiteral(Boolean(serialized.value), dummyToken);
 
       case 'function':
         // Functions cannot be deserialized, return null
-        return null;
+        return new NullLiteral();
 
       case 'expression':
         return this.deserializeExpression(serialized.value);
 
       case 'array':
         if (Array.isArray(serialized.value)) {
-          return serialized.value.map((item: any) => this.deserializeValue(item));
+          const elements = serialized.value.map((item: any) => this.deserializeValue(item));
+          return new ArrayLiteral(elements);
         }
-        return [];
+        return new ArrayLiteral([]);
 
       case 'object':
         if (serialized.value && typeof serialized.value === 'object') {
-          const obj: RuntimeObject = {};
+          const properties: ObjectProperty[] = [];
           for (const [key, val] of Object.entries(serialized.value)) {
-            obj[key] = this.deserializeValue(val);
+            properties.push(new ObjectProperty(key, this.deserializeValue(val)));
           }
-          return obj;
+          return new ObjectLiteral(properties);
         }
-        return {};
+        return new ObjectLiteral([]);
 
       default:
-        return null;
+        return new NullLiteral();
     }
   }
 
@@ -1048,30 +948,7 @@ export class Interpreter {
 
 // Utility functions
 export function formatRuntimeValue(value: Expression): string {
-  if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-  if (typeof value === 'string') return `"${value}"`;
-  if (typeof value === 'number') return value.toString();
-  if (typeof value === 'boolean') return value.toString();
-  if (typeof value === 'function') return '[Function]';
-  
-  if (value instanceof Expression) {
-    return expressionToCode(value);
-  }
-  
-  if (Array.isArray(value)) {
-    const elements = value.map(formatRuntimeValue).join(', ');
-    return `[${elements}]`;
-  }
-  
-  if (typeof value === 'object') {
-    const entries = Object.entries(value)
-      .map(([key, val]) => `${key}: ${formatRuntimeValue(val)}`)
-      .join(', ');
-    return `{ ${entries} }`;
-  }
-  
-  return String(value);
+  return expressionToCode(value);
 }
 
 export function expressionToCode(expr: Expression): string {
