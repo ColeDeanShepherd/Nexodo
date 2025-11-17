@@ -13,33 +13,15 @@ import {
   FunctionCall,
   MemberAccess,
   ArrayAccess,
-  Program
+  Program,
+  Function,
+  Parameter
 } from './ast';
-
-// Runtime values
-export type RuntimeValue = 
-  | number 
-  | string 
-  | boolean 
-  | null 
-  | RuntimeObject 
-  | RuntimeArray 
-  | RuntimeFunction
-  | Expression;
-
-export interface RuntimeObject {
-  [key: string]: RuntimeValue;
-}
-
-export interface RuntimeArray extends Array<RuntimeValue> {}
-
-export interface RuntimeFunction {
-  (...args: RuntimeValue[]): RuntimeValue;
-}
+import { STRING_TYPE } from './type-checker';
 
 // Environment binding - stores both value and optional expression
 export interface EnvironmentBinding {
-  value?: RuntimeValue;
+  value?: Expression;
   expression?: Expression;
 }
 
@@ -65,11 +47,11 @@ export class RuntimeEnvironment {
     this.parent = parent;
   }
 
-  define(name: string, value?: RuntimeValue, expression?: Expression): void {
+  define(name: string, value?: Expression, expression?: Expression): void {
     this.bindings.set(name, { value, expression });
   }
 
-  get(name: string): RuntimeValue {
+  get(name: string): Expression {
     const binding = this.bindings.get(name);
     if (binding !== undefined) {
       return this.interpreter.getBindingValue(binding);
@@ -93,7 +75,7 @@ export class RuntimeEnvironment {
     return undefined;
   }
 
-  set(name: string, value: RuntimeValue, expression?: Expression): void {
+  set(name: string, value: Expression, expression?: Expression): void {
     if (this.bindings.has(name)) {
       this.bindings.set(name, { value, expression });
       return;
@@ -128,7 +110,7 @@ export class RuntimeEnvironment {
     return new RuntimeEnvironment(this.interpreter, this);
   }
 
-  getAllBindings(): Map<string, RuntimeValue> {
+  getAllBindings(): Map<string, Expression> {
     const result = new Map(this.parent?.getAllBindings() || []);
     for (const [key, binding] of this.bindings) {
       result.set(key, this.interpreter.getBindingValue(binding));
@@ -158,29 +140,33 @@ export class Interpreter {
     const env = new RuntimeEnvironment(this);
     
     // Built-in console object
-    const consoleObj: RuntimeObject = {
-      log: (...args: RuntimeValue[]) => {
-        const message = args.map(arg => this.valueToString(arg)).join(' ');
-        this.output.push(message);
-        return null;
-      }
-    };
+    const consoleObj = new ObjectLiteral([
+      new ObjectProperty(
+        'log',
+        new Function(
+          [
+            new Parameter('message', STRING_TYPE)
+          ],
+          []
+        )
+      )
+    ]);
     
     // Built-in Math object
     const mathObj: RuntimeObject = {
-      abs: (x: RuntimeValue) => {
+      abs: (x: Expression) => {
         if (typeof x !== 'number') {
           throw new RuntimeError('Math.abs expects a number');
         }
         return Math.abs(x);
       },
-      max: (a: RuntimeValue, b: RuntimeValue) => {
+      max: (a: Expression, b: Expression) => {
         if (typeof a !== 'number' || typeof b !== 'number') {
           throw new RuntimeError('Math.max expects numbers');
         }
         return Math.max(a, b);
       },
-      min: (a: RuntimeValue, b: RuntimeValue) => {
+      min: (a: Expression, b: Expression) => {
         if (typeof a !== 'number' || typeof b !== 'number') {
           throw new RuntimeError('Math.min expects numbers');
         }
@@ -198,7 +184,7 @@ export class Interpreter {
     return env;
   }
 
-  interpret(node: ASTNode): { value: RuntimeValue; output: string[]; errors: RuntimeError[] } {
+  interpret(node: ASTNode): { value: Expression; output: string[]; errors: RuntimeError[] } {
     this.output = [];
     const errors: RuntimeError[] = [];
     
@@ -211,11 +197,11 @@ export class Interpreter {
       } else {
         errors.push(new RuntimeError(error instanceof Error ? error.message : String(error)));
       }
-      return { value: null, output: [...this.output], errors };
+      return { value: new NullLiteral(), output: [...this.output], errors };
     }
   }
 
-  public getBindingValue(binding: EnvironmentBinding): RuntimeValue {
+  public getBindingValue(binding: EnvironmentBinding): Expression {
     // Lazy evaluation: if value is undefined but expression exists, evaluate it now
     if (binding.value === undefined) {
       if (binding.expression === undefined) {
@@ -228,7 +214,7 @@ export class Interpreter {
     return binding.value;
   }
 
-  public evaluateNode(node: ASTNode): RuntimeValue {
+  public evaluateNode(node: ASTNode): Expression {
     switch (node.nodeType) {
       case 'Program':
         return this.evaluateProgram(node as Program);
@@ -237,17 +223,12 @@ export class Interpreter {
       case 'Identifier':
         return this.evaluateIdentifier(node as Identifier);
       case 'NumberLiteral':
-        return (node as NumberLiteral).value;
       case 'StringLiteral':
-        return (node as StringLiteral).value;
       case 'BooleanLiteral':
-        return (node as BooleanLiteral).value;
       case 'NullLiteral':
-        return null;
       case 'ObjectLiteral':
-        return this.evaluateObjectLiteral(node as ObjectLiteral);
       case 'ArrayLiteral':
-        return this.evaluateArrayLiteral(node as ArrayLiteral);
+        return node;
       case 'FunctionCall':
         return this.evaluateFunctionCall(node as FunctionCall);
       case 'MemberAccess':
@@ -259,8 +240,8 @@ export class Interpreter {
     }
   }
 
-  private evaluateProgram(node: Program): RuntimeValue {
-    let lastValue: RuntimeValue = null;
+  private evaluateProgram(node: Program): Expression {
+    let lastValue: Expression = new NullLiteral();
     
     for (const statement of node.statements) {
       lastValue = this.evaluateNode(statement);
@@ -453,7 +434,7 @@ export class Interpreter {
     throw new RuntimeError(`Invalid navigation step type`);
   }
 
-  private evaluateAssignment(node: Assignment): RuntimeValue {
+  private evaluateAssignment(node: Assignment): Expression {
     // Evaluate the value expression to get the runtime value
     const value = this.evaluateNode(node.value);
     
@@ -464,49 +445,11 @@ export class Interpreter {
     return value;
   }
 
-  private evaluateIdentifier(node: Identifier): RuntimeValue {
+  private evaluateIdentifier(node: Identifier): Expression {
     return this.environment.get(node.name);
   }
 
-  private evaluateObjectLiteral(node: ObjectLiteral): RuntimeObject {
-    const obj: RuntimeObject = {};
-    
-    for (const prop of node.properties) {
-      const key = this.getPropertyKey(prop);
-      const value = this.evaluateNode(prop.value);
-      obj[key] = value;
-    }
-    
-    return obj;
-  }
-
-  private getPropertyKey(prop: ObjectProperty): string {
-    if (typeof prop.key === 'string') {
-      return prop.key;
-    }
-    
-    if (prop.key instanceof Identifier) {
-      return prop.key.name;
-    }
-    
-    if (prop.key instanceof StringLiteral) {
-      return prop.key.value;
-    }
-    
-    // Evaluate the key expression
-    const keyValue = this.evaluateNode(prop.key);
-    if (typeof keyValue === 'string') {
-      return keyValue;
-    }
-    
-    throw new RuntimeError('Object property key must be a string');
-  }
-
-  private evaluateArrayLiteral(node: ArrayLiteral): RuntimeArray {
-    return node.elements.map(element => this.evaluateNode(element));
-  }
-
-  private evaluateFunctionCall(node: FunctionCall): RuntimeValue {
+  private evaluateFunctionCall(node: FunctionCall): Expression {
     // Special handling for delete function - don't evaluate the argument
     if (node.callee.nodeType === 'Identifier' && (node.callee as Identifier).name === 'delete') {
       return this.handleDelete(node);
@@ -514,21 +457,37 @@ export class Interpreter {
     
     const callee = this.evaluateNode(node.callee);
     
-    if (typeof callee !== 'function') {
-      throw new RuntimeError(`Cannot call non-function value: ${typeof callee}`, node);
+    if (callee.nodeType !== 'Function') {
+      throw new RuntimeError(`Cannot call non-function value: ${callee.nodeType}`, node);
     }
     
     const args = node.args.map(arg => this.evaluateNode(arg));
-    
-    try {
-      return callee(...args);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new RuntimeError(`Function call error: ${message}`, node);
+    const funcNode = callee as Function;
+
+    // create new RuntimeEnvironment for function call
+    const funcEnv = this.environment.createChild();
+
+    // Bind function parameters to arguments
+    for (const [i, param] of funcNode.parameters.entries()) {
+      const arg = args[i];
+      funcEnv.set(param.name, arg);
     }
+
+    // Evaluate function body in new environment
+    return this.evaluateBlock(funcNode.body, funcEnv);
   }
 
-  private handleDelete(node: FunctionCall): RuntimeValue {
+  private evaluateBlock(statements: ASTNode[], env: RuntimeEnvironment): Expression {
+    let lastValue: Expression = new NullLiteral();
+
+    for (const stmt of statements) {
+      lastValue = this.evaluateNode(stmt, env);
+    }
+
+    return lastValue;
+  }
+
+  private handleDelete(node: FunctionCall): Expression {
     if (node.args.length !== 1) {
       throw new RuntimeError('delete expects exactly 1 argument', node);
     }
@@ -542,7 +501,7 @@ export class Interpreter {
       if (!deleted) {
         throw new RuntimeError(`Variable '${identifier.name}' not found`, target);
       }
-      return null;
+      return new NullLiteral();
     }
     
     // Handle delete(obj.property) - delete object property
@@ -560,7 +519,7 @@ export class Interpreter {
       
       const propertyName = member.property.name;
       delete (object as any)[propertyName];
-      return null;
+      return new NullLiteral();
     }
     
     // Handle delete(arr[index]) - delete array element
@@ -586,13 +545,13 @@ export class Interpreter {
       
       // Use splice to remove the element
       array.splice(actualIndex, 1);
-      return null;
+      return new NullLiteral();
     }
     
     throw new RuntimeError('delete expects an identifier, object property, or array element', target);
   }
 
-  private evaluateMemberAccess(node: MemberAccess, allowUndefined: boolean = false): RuntimeValue {
+  private evaluateMemberAccess(node: MemberAccess, allowUndefined: boolean = false): Expression {
     const object = this.evaluateNode(node.object);
     
     if (object === null || object === undefined) {
@@ -606,7 +565,7 @@ export class Interpreter {
       switch (propertyName) {
         case 'add':
         case 'push':
-          return (...items: RuntimeValue[]) => {
+          return (...items: Expression[]) => {
             (object as RuntimeArray).push(...items);
             return object.length;
           };
@@ -644,32 +603,37 @@ export class Interpreter {
     return value;
   }
 
-  private evaluateArrayAccess(node: ArrayAccess): RuntimeValue {
+  private evaluateArrayAccess(node: ArrayAccess): Expression {
     const object = this.evaluateNode(node.object);
     const index = this.evaluateNode(node.index);
     
     // Check if object is an array
-    if (!Array.isArray(object)) {
-      throw new RuntimeError(`Cannot index non-array value: ${typeof object}`, node);
+    if (object.nodeType !== 'ArrayLiteral') {
+      throw new RuntimeError(`Cannot index non-array value: ${object.nodeType}`, node);
     }
+
+    const arrayLiteral = object as ArrayLiteral;
     
     // Check if index is a number
-    if (typeof index !== 'number') {
-      throw new RuntimeError(`Array index must be a number, got ${typeof index}`, node);
+    if (index.nodeType !== 'NumberLiteral') {
+      throw new RuntimeError(`Array index must be a number, got ${index.nodeType}`, node);
     }
+
+    const indexLiteral = index as NumberLiteral;
     
     // Check if index is within bounds (allow negative indices for Python-like behavior)
-    const array = object as RuntimeArray;
-    const actualIndex = index < 0 ? array.length + index : index;
-    
-    if (actualIndex < 0 || actualIndex >= array.length) {
-      throw new RuntimeError(`Array index ${index} out of bounds for array of length ${array.length}`, node);
+    let actualIndex = indexLiteral.value < 0
+      ? arrayLiteral.elements.length + indexLiteral.value
+      : indexLiteral.value;
+
+    if (actualIndex < 0 || actualIndex >= arrayLiteral.elements.length) {
+      throw new RuntimeError(`Array index ${index} out of bounds for array of length ${arrayLiteral.elements.length}`, node);
     }
-    
-    return array[actualIndex];
+
+    return arrayLiteral.elements[actualIndex];
   }
 
-  private valueToString(value: RuntimeValue): string {
+  private valueToString(value: Expression): string {
     if (value === null) return 'null';
     if (value === undefined) return 'undefined';
     if (typeof value === 'string') return value;
@@ -782,7 +746,7 @@ export class Interpreter {
   saveEnvironment(): Record<string, any> {
     const userBindings = this.getUserDefinedBindings();
     // Prefer expressions over values when available for serialization
-    const valueMap = new Map<string, RuntimeValue>();
+    const valueMap = new Map<string, Expression>();
     for (const [name, binding] of userBindings) {
       // If we have the original expression, serialize that instead of the evaluated value
       valueMap.set(name, binding.expression || this.getBindingValue(binding));
@@ -833,7 +797,7 @@ export class Interpreter {
   }
 
   // Serialize runtime values to JSON-compatible format
-  private serializeBindings(bindings: Map<string, RuntimeValue>): Record<string, any> {
+  private serializeBindings(bindings: Map<string, Expression>): Record<string, any> {
     const result: Record<string, any> = {};
 
     for (const [name, value] of bindings) {
@@ -843,7 +807,7 @@ export class Interpreter {
     return result;
   }
 
-  private serializeValue(value: RuntimeValue): any {
+  private serializeValue(value: Expression): any {
     if (value === null || value === undefined) {
       return { type: 'null', value: null };
     }
@@ -962,8 +926,8 @@ export class Interpreter {
   }
 
   // Deserialize JSON data back to runtime values
-  private deserializeBindings(serializedBindings: Record<string, any>): Map<string, RuntimeValue> {
-    const bindings = new Map<string, RuntimeValue>();
+  private deserializeBindings(serializedBindings: Record<string, any>): Map<string, Expression> {
+    const bindings = new Map<string, Expression>();
 
     for (const [name, serializedValue] of Object.entries(serializedBindings)) {
       const value = this.deserializeValue(serializedValue);
@@ -973,7 +937,7 @@ export class Interpreter {
     return bindings;
   }
 
-  private deserializeValue(serialized: any): RuntimeValue {
+  private deserializeValue(serialized: any): Expression {
     if (!serialized || typeof serialized !== 'object' || !serialized.type) {
       return null;
     }
@@ -1083,7 +1047,7 @@ export class Interpreter {
 }
 
 // Utility functions
-export function formatRuntimeValue(value: RuntimeValue): string {
+export function formatRuntimeValue(value: Expression): string {
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
   if (typeof value === 'string') return `"${value}"`;

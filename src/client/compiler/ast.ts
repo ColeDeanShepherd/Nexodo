@@ -1,5 +1,6 @@
 import { Token } from './lexer';
 import { ParseNode, ParseNodeType } from './parser';
+import { Type } from './type-checker';
 
 // Abstract Syntax Tree Node Types
 export abstract class ASTNode {
@@ -37,7 +38,7 @@ export class BooleanLiteral extends Expression {
 export class NullLiteral extends Expression {
   readonly nodeType = 'NullLiteral';
   
-  constructor(public token: Token) {
+  constructor(public token?: Token) {
     super();
   }
 }
@@ -122,6 +123,26 @@ export class Assignment extends ASTNode {
     public target: Identifier | MemberAccess | ArrayAccess,
     public value: Expression
   ) {
+    super();
+  }
+}
+
+// Other
+export class Function extends ASTNode {
+  readonly nodeType = 'Function';
+
+  constructor(
+    public parameters: Parameter[],
+    public body: ASTNode[]
+  ) {
+    super();
+  }
+}
+
+export class Parameter extends ASTNode {
+  readonly nodeType = 'Parameter';
+
+  constructor(public name: string, public type?: Type) {
     super();
   }
 }
