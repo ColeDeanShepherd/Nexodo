@@ -355,6 +355,34 @@ export class TypeChecker {
       return valueType;
     }
 
+    // If assignment target is an array access, validate the array and index types
+    if ((node as any).target && (node as any).target.nodeType === 'ArrayAccess') {
+      const arrayAccess = (node as any).target as ArrayAccess;
+      const objectType = this.checkNode(arrayAccess.object);
+      const indexType = this.checkNode(arrayAccess.index);
+
+      if (!(objectType instanceof ArrayType)) {
+        this.error(`Cannot assign to non-array type: ${objectType.toString()}`, node as any);
+        return UNKNOWN_TYPE;
+      }
+
+      if (!indexType.equals(NUMBER_TYPE)) {
+        this.error(`Array index must be a number, got ${indexType.toString()}`, node as any);
+        return UNKNOWN_TYPE;
+      }
+
+      // Check if the value type is assignable to the array's element type
+      if (!this.isAssignable(valueType, objectType.elementType) && 
+          !this.isAssignable(objectType.elementType, UNKNOWN_TYPE)) {
+        this.error(
+          `Cannot assign ${valueType.toString()} to array of ${objectType.elementType.toString()}`,
+          node as any
+        );
+      }
+
+      return valueType;
+    }
+
     this.error('Invalid assignment target', node as any);
     return UNKNOWN_TYPE;
   }
