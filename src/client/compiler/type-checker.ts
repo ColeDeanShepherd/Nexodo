@@ -208,7 +208,7 @@ export class TypeChecker {
     // Add runtime variables to type environment
     for (const [name, value] of runtimeBindings) {
       // Skip built-ins that are already in the type environment
-      if (name !== 'console' && name !== 'Math') {
+      if (name !== 'console' && name !== 'Math' && name !== 'delete') {
         const type = this.inferTypeFromRuntimeValue(value);
         this.environment.define(name, type);
       }

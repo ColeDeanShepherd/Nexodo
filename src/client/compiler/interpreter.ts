@@ -604,6 +604,19 @@ export class Interpreter {
       switch (propertyName) {
         case 'length':
           return new NumberLiteral(arrayLiteral.elements.length, dummyToken);
+        case 'add':
+          return new Function(
+            [new Parameter('element')],
+            [
+              new BuiltInCodeNode(() => {
+                const element = this.environment.get('element');
+                arrayLiteral.elements.push(element);
+                return new NullLiteral();
+                // const newElements = [...arrayLiteral.elements, element];
+                // return new ArrayLiteral(newElements);
+              })
+            ]
+          );
         default:
           if (!allowUndefined) {
             throw new RuntimeError(`Property '${propertyName}' does not exist on array`, node);
