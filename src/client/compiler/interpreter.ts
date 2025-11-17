@@ -269,46 +269,199 @@ export class Interpreter {
     return lastValue;
   }
 
+  // Replace a sub-expression within a binding's expression by following a path through literals
+  // pathThroughLiteral: An expression like `test`, `test.a`, `test[0]`, `test[1].b`, etc.
+  // newSubExpr: The new expression to replace the final target with
+  // Example: replaceSubExprInLiteral(`test[0].a`, `3`) where test = `[{ a: "hi" }]` 
+  //          results in test = `[{ a: 3 }]`
+  private replaceSubExprInLiteral(
+    pathThroughLiteral: Expression,
+    newSubExpr: Expression
+  ): void {
+    // Extract the root identifier and navigation path from the expression
+    const { rootIdentifier, navigationPath } = this.extractNavigationPath(pathThroughLiteral);
+    
+    // Get the root binding
+    const rootBinding = this.environment.getBinding(rootIdentifier);
+    if (!rootBinding) {
+      throw new RuntimeError(`Undefined variable: ${rootIdentifier}`);
+    }
+    
+    if (!rootBinding.expression) {
+      throw new RuntimeError(
+        `Cannot replace sub-expression: '${rootIdentifier}' is not bound to a constant expression`
+      );
+    }
+    
+    // Navigate through the expression and replace the target
+    const updatedExpression = this.navigateAndReplace(
+      rootBinding.expression,
+      navigationPath,
+      newSubExpr,
+      pathThroughLiteral
+    );
+    
+    // Update the binding
+    rootBinding.expression = updatedExpression;
+    rootBinding.value = undefined;
+    
+    // Re-evaluate all bindings
+    this.reevaluateAllBindings();
+  }
+  
+  // Extract root identifier and navigation path from an expression
+  // Returns: { rootIdentifier: string, navigationPath: Array<{type: 'member'|'index', key: string|number}> }
+  private extractNavigationPath(expr: Expression): { 
+    rootIdentifier: string; 
+    navigationPath: Array<{ type: 'member' | 'index'; key: string | number }> 
+  } {
+    const path: Array<{ type: 'member' | 'index'; key: string | number }> = [];
+    let current: Expression = expr;
+    
+    // Walk up the expression tree, building the path in reverse
+    while (current.nodeType === 'MemberAccess' || current.nodeType === 'ArrayAccess') {
+      if (current.nodeType === 'MemberAccess') {
+        const memberNode = current as MemberAccess;
+        path.unshift({ type: 'member', key: memberNode.property.name });
+        current = memberNode.object;
+      } else if (current.nodeType === 'ArrayAccess') {
+        const arrayNode = current as ArrayAccess;
+        
+        // The index must be a number literal for this to be a valid literal path
+        if (arrayNode.index.nodeType !== 'NumberLiteral') {
+          throw new RuntimeError(
+            `Array index must be a number literal in path, got ${arrayNode.index.nodeType}`
+          );
+        }
+        
+        const indexValue = (arrayNode.index as NumberLiteral).value;
+        if (!Number.isInteger(indexValue)) {
+          throw new RuntimeError(`Array index must be an integer, got ${indexValue}`);
+        }
+        
+        path.unshift({ type: 'index', key: indexValue });
+        current = arrayNode.object;
+      }
+    }
+    
+    // The root must be an identifier
+    if (current.nodeType !== 'Identifier') {
+      throw new RuntimeError(
+        `Path must start with an identifier, got ${current.nodeType}`
+      );
+    }
+    
+    const rootIdentifier = (current as Identifier).name;
+    return { rootIdentifier, navigationPath: path };
+  }
+  
+  // Navigate through an expression following the path and replace the target
+  private navigateAndReplace(
+    expr: Expression,
+    path: Array<{ type: 'member' | 'index'; key: string | number }>,
+    newSubExpr: Expression,
+    originalPathExpr: Expression
+  ): Expression {
+    // Base case: if path is empty, replace the entire expression
+    if (path.length === 0) {
+      return newSubExpr;
+    }
+    
+    const [firstStep, ...restPath] = path;
+    
+    if (firstStep.type === 'member') {
+      // Must be an object literal
+      if (expr.nodeType !== 'ObjectLiteral') {
+        throw new RuntimeError(
+          `Cannot navigate through member '${firstStep.key}': expression is not a constant object literal (got ${expr.nodeType})`
+        );
+      }
+      
+      const objLiteral = expr as ObjectLiteral;
+      const propertyName = firstStep.key as string;
+      
+      // Find the property
+      let foundIndex = -1;
+      for (let i = 0; i < objLiteral.properties.length; i++) {
+        const prop = objLiteral.properties[i];
+        const propKey = typeof prop.key === 'string' ? prop.key :
+                        (prop.key instanceof Identifier ? prop.key.name : null);
+        
+        if (propKey === propertyName) {
+          foundIndex = i;
+          break;
+        }
+      }
+      
+      if (foundIndex < 0) {
+        // If we're at the end of the path, we can add a new property
+        if (restPath.length === 0) {
+          const newProperties = [...objLiteral.properties];
+          newProperties.push(new ObjectProperty(propertyName, newSubExpr));
+          return new ObjectLiteral(newProperties);
+        } else {
+          throw new RuntimeError(
+            `Property '${propertyName}' does not exist in constant object literal`
+          );
+        }
+      }
+      
+      // Navigate deeper or replace
+      const currentProp = objLiteral.properties[foundIndex];
+      const updatedValue = this.navigateAndReplace(
+        currentProp.value,
+        restPath,
+        newSubExpr,
+        originalPathExpr
+      );
+      
+      const newProperties = [...objLiteral.properties];
+      newProperties[foundIndex] = new ObjectProperty(propertyName, updatedValue);
+      return new ObjectLiteral(newProperties);
+      
+    } else if (firstStep.type === 'index') {
+      // Must be an array literal
+      if (expr.nodeType !== 'ArrayLiteral') {
+        throw new RuntimeError(
+          `Cannot navigate through index ${firstStep.key}: expression is not a constant array literal (got ${expr.nodeType})`
+        );
+      }
+      
+      const arrayLiteral = expr as ArrayLiteral;
+      const index = firstStep.key as number;
+      
+      // Check bounds
+      if (index < 0 || index >= arrayLiteral.elements.length) {
+        throw new RuntimeError(
+          `Array index ${index} out of bounds for array of length ${arrayLiteral.elements.length}`
+        );
+      }
+      
+      // Navigate deeper or replace
+      const updatedElement = this.navigateAndReplace(
+        arrayLiteral.elements[index],
+        restPath,
+        newSubExpr,
+        originalPathExpr
+      );
+      
+      const newElements = [...arrayLiteral.elements];
+      newElements[index] = updatedElement;
+      return new ArrayLiteral(newElements);
+    }
+    
+    throw new RuntimeError(`Invalid navigation step type`);
+  }
+
   private evaluateAssignment(node: Assignment): RuntimeValue {
-    // Always evaluate the expression to get the runtime value
+    // Evaluate the value expression to get the runtime value
     const value = this.evaluateNode(node.value);
     
-    // If target is an identifier
-    if (node.target.nodeType === 'Identifier') {
-      const identifier = node.target as Identifier;
-      // Store both the evaluated value and the original expression
-      this.environment.set(identifier.name, value, node.value);
-      // Re-evaluate all other bindings since they might depend on this one
-      this.reevaluateAllBindings();
-      return value;
-    }
-
-    // If target is member access
-    if (node.target.nodeType === 'MemberAccess') {
-      const member = node.target as MemberAccess;
-      
-      // For assignment, we need to be more careful about evaluating the object
-      // If the object itself is a member access, we need to allow undefined properties
-      let obj: RuntimeValue;
-      if (member.object.nodeType === 'MemberAccess') {
-        obj = this.evaluateMemberAccess(member.object as MemberAccess, true);
-      } else {
-        obj = this.evaluateNode(member.object);
-      }
-
-      if (obj === null || obj === undefined) {
-        throw new RuntimeError('Cannot set property on null or undefined', node);
-      }
-      if (typeof obj !== 'object') {
-        throw new RuntimeError('Cannot set property on non-object value', node);
-      }
-
-      const propName = member.property.name;
-      (obj as any)[propName] = value;
-      return value;
-    }
-
-    throw new RuntimeError('Invalid assignment target', node);
+    // Use replaceSubExprInLiteral to update the binding expression
+    // This handles both simple identifiers and complex paths (member/array access)
+    this.replaceSubExprInLiteral(node.target, node.value);
+    
+    return value;
   }
 
   private evaluateIdentifier(node: Identifier): RuntimeValue {

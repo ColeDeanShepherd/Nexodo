@@ -227,7 +227,7 @@ class REPL {
             _elem('span', { class: 'env-var-name' }, [name]),
             _elem('span', { class: 'env-var-separator' }, [': ']),
             _elem('span', { class: 'env-var-value' }, [valueStr]),
-            _elem('span', { class: 'env-var-separator' }, [' <- ']),
+            _elem('span', { class: 'env-var-separator' }, [' ← ']),
             _elem('span', { class: 'env-var-expression' }, [exprStr])
           ])
           varsList.appendChild(varItem)
