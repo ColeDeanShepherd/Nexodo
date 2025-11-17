@@ -15,9 +15,10 @@ import {
   ArrayAccess,
   Program,
   Function,
-  Parameter
+  Parameter,
+  BuiltInCodeNode
 } from './ast';
-import { STRING_TYPE } from './type-checker';
+import { NUMBER_TYPE, STRING_TYPE } from './type-checker';
 
 // Environment binding - stores both value and optional expression
 export interface EnvironmentBinding {
@@ -142,26 +143,81 @@ export class Interpreter {
 
   private createBuiltinEnvironment(): RuntimeEnvironment {
     const env = new RuntimeEnvironment(this);
+    const dummyToken: any = { type: 'BUILTIN', value: '', position: 0, line: 0, column: 0 };
     
     // Built-in console object
     const consoleObj = new ObjectLiteral([
       new ObjectProperty(
         'log',
         new Function(
+          [new Parameter('message', STRING_TYPE)],
           [
-            new Parameter('message', STRING_TYPE)
-          ],
-          []
+            new BuiltInCodeNode(() => {
+              const message = this.environment.get('message');
+              const messageStr = this.expressionToCode(message);
+              this.output.push(messageStr);
+              return new NullLiteral();
+            })
+          ]
         )
       )
     ]);
     
     // Built-in Math object
-    const dummyToken: any = { type: 'BUILTIN', value: '', position: 0, line: 0, column: 0 };
     const mathObj = new ObjectLiteral([
-      new ObjectProperty('abs', new Function([new Parameter('x', STRING_TYPE)], [])),
-      new ObjectProperty('max', new Function([new Parameter('a', STRING_TYPE), new Parameter('b', STRING_TYPE)], [])),
-      new ObjectProperty('min', new Function([new Parameter('a', STRING_TYPE), new Parameter('b', STRING_TYPE)], [])),
+      new ObjectProperty(
+        'abs',
+        new Function(
+          [new Parameter('x', NUMBER_TYPE)], 
+          [
+            new BuiltInCodeNode(() => {
+              const x = this.environment.get('x');
+              if (x.nodeType !== 'NumberLiteral') {
+                throw new RuntimeError(`Math.abs expects a number, got ${x.nodeType}`);
+              }
+              return new NumberLiteral(Math.abs((x as NumberLiteral).value), dummyToken);
+            })
+          ]
+        )
+      ),
+      new ObjectProperty(
+        'max',
+        new Function(
+          [new Parameter('a', NUMBER_TYPE), new Parameter('b', NUMBER_TYPE)],
+          [
+            new BuiltInCodeNode(() => {
+              const a = this.environment.get('a');
+              const b = this.environment.get('b');
+              if (a.nodeType !== 'NumberLiteral' || b.nodeType !== 'NumberLiteral') {
+                throw new RuntimeError(`Math.max expects numbers, got ${a.nodeType} and ${b.nodeType}`);
+              }
+              return new NumberLiteral(
+                Math.max((a as NumberLiteral).value, (b as NumberLiteral).value),
+                dummyToken
+              );
+            })
+          ]
+        )
+      ),
+      new ObjectProperty(
+        'min',
+        new Function(
+          [new Parameter('a', NUMBER_TYPE), new Parameter('b', NUMBER_TYPE)],
+          [
+            new BuiltInCodeNode(() => {
+              const a = this.environment.get('a');
+              const b = this.environment.get('b');
+              if (a.nodeType !== 'NumberLiteral' || b.nodeType !== 'NumberLiteral') {
+                throw new RuntimeError(`Math.min expects numbers, got ${a.nodeType} and ${b.nodeType}`);
+              }
+              return new NumberLiteral(
+                Math.min((a as NumberLiteral).value, (b as NumberLiteral).value),
+                dummyToken
+              );
+            })
+          ]
+        )
+      ),
       new ObjectProperty('PI', new NumberLiteral(Math.PI, dummyToken))
     ]);
     
@@ -225,6 +281,8 @@ export class Interpreter {
         return this.evaluateMemberAccess(node as MemberAccess);
       case 'ArrayAccess':
         return this.evaluateArrayAccess(node as ArrayAccess);
+      case 'BuiltInCodeNode':
+        return (node as BuiltInCodeNode).fn();
       default:
         throw new RuntimeError(`Unknown node type: ${node.nodeType}`, node);
     }

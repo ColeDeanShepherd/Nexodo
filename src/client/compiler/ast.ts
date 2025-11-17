@@ -128,6 +128,14 @@ export class Assignment extends ASTNode {
 }
 
 // Other
+export class BuiltInCodeNode extends ASTNode {
+  readonly nodeType = 'BuiltInCodeNode';
+
+  constructor(public fn: () => Expression) {
+    super();
+  }
+}
+
 export class Function extends ASTNode {
   readonly nodeType = 'Function';
 
