@@ -117,9 +117,9 @@ export class ArrayAccess extends Expression {
 export class Assignment extends ASTNode {
   readonly nodeType = 'Assignment';
   
-  // target can be a plain identifier (x) or a member access (obj.prop)
+  // target can be a plain identifier (x), a member access (obj.prop), or an array access (arr[i])
   constructor(
-    public target: Identifier | MemberAccess,
+    public target: Identifier | MemberAccess | ArrayAccess,
     public value: Expression
   ) {
     super();
@@ -197,15 +197,15 @@ export class ASTBuilder {
     const targetNode = this.build(nonTokenChildren[0]);
     const value = this.build(nonTokenChildren[1]);
     
-    if (!(targetNode instanceof Identifier) && !(targetNode instanceof MemberAccess)) {
-      throw new Error('Assignment target must be an identifier or member access');
+    if (!(targetNode instanceof Identifier) && !(targetNode instanceof MemberAccess) && !(targetNode instanceof ArrayAccess)) {
+      throw new Error('Assignment target must be an identifier, member access, or array access');
     }
     
     if (!(value instanceof Expression)) {
       throw new Error('Assignment value must be an expression');
     }
     
-    return new Assignment(targetNode as Identifier | MemberAccess, value);
+    return new Assignment(targetNode as Identifier | MemberAccess | ArrayAccess, value);
   }
 
   private buildExpression(node: ParseNode): Expression {
