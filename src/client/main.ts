@@ -1,10 +1,10 @@
 import { createReplParser } from './compiler/grammar'
 import { Lexer } from './compiler/lexer'
-import { buildAST } from './compiler/ast'
+import { ArrayLiteral, buildAST } from './compiler/ast'
 import { TypeChecker, formatTypeError, formatType } from './compiler/type-checker'
-import { Interpreter, formatRuntimeValue, formatRuntimeError, expressionToCode } from './compiler/interpreter'
+import { Interpreter, formatRuntimeValue, formatRuntimeError, expressionToCode, EnvironmentBinding } from './compiler/interpreter'
 import { EnvironmentService } from './environment-service'
-import { _elem, _h1, _div, _input, _button } from './ui-lib'
+import { _elem, _h1, _div, _input, _button, _text } from './ui-lib'
 
 // Google Identity Services API types
 declare global {
@@ -217,41 +217,60 @@ class REPL {
     for (const [name, binding] of userBindings) {
       const valueStr = formatRuntimeValue(binding.value!)
       
-      // If there's an expression, show both the expression and the evaluated value
+      // Build base elements: name and value
+      const elements = [
+        _elem('span', { class: 'env-var-name' }, [name]),
+        _elem('span', { class: 'env-var-separator' }, [': ']),
+        _elem('span', { class: 'env-var-value' }, [this.renderEditableBindingValue(name, binding)])
+      ]
+      
+      // Add expression if it exists and differs from value
       if (binding.expression) {
         const exprStr = expressionToCode(binding.expression)
-
         if (valueStr !== exprStr) {
-          // Only show expression if it's different from the value string
-          const varItem = _div({ class: 'env-variable' }, [
-            _elem('span', { class: 'env-var-name' }, [name]),
-            _elem('span', { class: 'env-var-separator' }, [': ']),
-            _elem('span', { class: 'env-var-value' }, [valueStr]),
+          elements.push(
             _elem('span', { class: 'env-var-separator' }, [' ← ']),
             _elem('span', { class: 'env-var-expression' }, [exprStr])
-          ])
-          varsList.appendChild(varItem)
-        } else {
-          // If expression and value are the same, just show one
-          const varItem = _div({ class: 'env-variable' }, [
-            _elem('span', { class: 'env-var-name' }, [name]),
-            _elem('span', { class: 'env-var-separator' }, [': ']),
-            _elem('span', { class: 'env-var-value' }, [valueStr])
-          ])
-          varsList.appendChild(varItem)
+          )
         }
-      } else {
-        // No expression, just show the value
-        const varItem = _div({ class: 'env-variable' }, [
-          _elem('span', { class: 'env-var-name' }, [name]),
-          _elem('span', { class: 'env-var-separator' }, [': ']),
-          _elem('span', { class: 'env-var-value' }, [valueStr])
-        ])
-        varsList.appendChild(varItem)
       }
+      
+      const varItem = _div({ class: 'env-variable' }, elements)
+      varsList.appendChild(varItem)
     }
     
     this.envDisplayElement.appendChild(varsList)
+  }
+
+  private renderEditableBindingValue(name: string, binding: EnvironmentBinding): HTMLElement | string {
+    const value = binding.value!;
+
+    // if is array, then render each element on a separate line
+    if (value.nodeType === 'ArrayLiteral') {
+      const arrayLiteral = value as ArrayLiteral;
+      const container = _div({ class: 'env-var-array' });
+      container.appendChild(_div(['[']));
+      for (const element of arrayLiteral.elements) {
+        const elementStr = formatRuntimeValue(element);
+
+        const deleteBtn = _button({ class: 'delete-button' }, ['x']);
+        deleteBtn.addEventListener('click', async () => {
+          this.executeCommand(`delete(${name}[${arrayLiteral.elements.indexOf(element)}])`);
+        });
+
+        const elementLine = _div({ class: 'env-var-array-element' }, [
+          elementStr,
+          deleteBtn
+        ]);
+        container.appendChild(elementLine);
+      }
+      container.appendChild(_div([']']));
+      return container;
+    }
+    // else, just render as text
+    else {
+      return formatRuntimeValue(value);
+    }
   }
 
   private async loadEnvironment() {
