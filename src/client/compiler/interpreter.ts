@@ -580,9 +580,100 @@ export class Interpreter {
     if (target.nodeType === 'ArrayAccess') {
       const arrayAccess = target as ArrayAccess;
       
-      // For now, we can't modify arrays in place
-      // This would require tracking the identifier and updating the binding  
-      throw new RuntimeError('Delete on array elements not yet fully supported', target);
+      // Extract the root identifier and navigation path
+      const { rootIdentifier, navigationPath } = this.extractNavigationPath(arrayAccess);
+      
+      // Get the root binding
+      const rootBinding = this.environment.getBinding(rootIdentifier);
+      if (!rootBinding || !rootBinding.expression) {
+        throw new RuntimeError(
+          `Cannot delete array element: '${rootIdentifier}' is not bound to a constant expression`,
+          target
+        );
+      }
+      
+      // The path should end with an array index
+      if (navigationPath.length === 0) {
+        throw new RuntimeError('Invalid array access path for delete', target);
+      }
+      
+      const lastStep = navigationPath[navigationPath.length - 1];
+      if (lastStep.type !== 'index') {
+        throw new RuntimeError('Delete target must be an array index', target);
+      }
+      
+      // Navigate to the parent array and remove the element
+      const parentPath = navigationPath.slice(0, -1);
+      const indexToDelete = lastStep.key as number;
+      
+      // Navigate to the parent array expression
+      let parentArray: Expression = rootBinding.expression;
+      for (const step of parentPath) {
+        if (step.type === 'member') {
+          if (parentArray.nodeType !== 'ObjectLiteral') {
+            throw new RuntimeError('Cannot navigate through non-object in delete path', target);
+          }
+          const objLiteral = parentArray as ObjectLiteral;
+          const prop = objLiteral.properties.find(p => {
+            const key = typeof p.key === 'string' ? p.key : (p.key as Identifier).name;
+            return key === step.key;
+          });
+          if (!prop) {
+            throw new RuntimeError(`Property '${step.key}' not found in delete path`, target);
+          }
+          parentArray = prop.value;
+        } else if (step.type === 'index') {
+          if (parentArray.nodeType !== 'ArrayLiteral') {
+            throw new RuntimeError('Cannot navigate through non-array in delete path', target);
+          }
+          const arrayLiteral = parentArray as ArrayLiteral;
+          const index = step.key as number;
+          if (index < 0 || index >= arrayLiteral.elements.length) {
+            throw new RuntimeError(`Array index ${index} out of bounds in delete path`, target);
+          }
+          parentArray = arrayLiteral.elements[index];
+        }
+      }
+      
+      // Verify the parent is an array
+      if (parentArray.nodeType !== 'ArrayLiteral') {
+        throw new RuntimeError('Delete target is not an array element', target);
+      }
+      
+      const arrayLiteral = parentArray as ArrayLiteral;
+      
+      // Check bounds
+      if (indexToDelete < 0 || indexToDelete >= arrayLiteral.elements.length) {
+        throw new RuntimeError(
+          `Array index ${indexToDelete} out of bounds for array of length ${arrayLiteral.elements.length}`,
+          target
+        );
+      }
+      
+      // Create new array with element removed
+      const newElements = arrayLiteral.elements.filter((_, i) => i !== indexToDelete);
+      const newArray = new ArrayLiteral(newElements);
+      
+      // Update the binding by replacing the parent array
+      if (parentPath.length === 0) {
+        // We're deleting from the root array
+        rootBinding.expression = newArray;
+      } else {
+        // We need to replace the parent array in the larger structure
+        const updatedExpression = this.navigateAndReplace(
+          rootBinding.expression,
+          parentPath,
+          newArray,
+          arrayAccess
+        );
+        rootBinding.expression = updatedExpression;
+      }
+      
+      // Clear cached value and re-evaluate
+      rootBinding.value = undefined;
+      this.reevaluateAllBindings();
+      
+      return new NullLiteral();
     }
     
     throw new RuntimeError('delete expects an identifier, object property, or array element', target);
