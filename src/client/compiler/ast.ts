@@ -114,6 +114,19 @@ export class ArrayAccess extends Expression {
   }
 }
 
+// DOM Node for UI elements
+export class DOMNode extends Expression {
+  readonly nodeType = 'DOMNode';
+  
+  constructor(
+    public tagName: string,
+    public attributes: Record<string, string> = {},
+    public children: (DOMNode | string)[] = []
+  ) {
+    super();
+  }
+}
+
 // Assignments
 export class Assignment extends ASTNode {
   readonly nodeType = 'Assignment';

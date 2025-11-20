@@ -16,7 +16,8 @@ import {
   Program,
   Function,
   Parameter,
-  BuiltInCodeNode
+  BuiltInCodeNode,
+  DOMNode
 } from './ast';
 import { NUMBER_TYPE, STRING_TYPE } from './type-checker';
 
@@ -224,6 +225,18 @@ export class Interpreter {
     env.define('console', consoleObj);
     env.define('Math', mathObj);
     
+    // Built-in UI functions
+    const uiHrFunc = new Function(
+      [], // No parameters
+      [
+        new BuiltInCodeNode(() => {
+          // Create an hr element using document.createElement
+          return new DOMNode('hr');
+        })
+      ]
+    );
+    env.define('uiHr', uiHrFunc);
+    
     // Built-in delete function (special - argument not evaluated)
     env.define('delete', '__DELETE_BUILTIN__' as any);
     
@@ -272,6 +285,7 @@ export class Interpreter {
       case 'StringLiteral':
       case 'BooleanLiteral':
       case 'NullLiteral':
+      case 'DOMNode':
       case 'ObjectLiteral':
       case 'ArrayLiteral':
         return node;
@@ -1208,6 +1222,23 @@ export function expressionToCode(expr: Expression): string {
       const object = expressionToCode(node.object);
       const index = expressionToCode(node.index);
       return `${object}[${index}]`;
+    }
+    
+    case 'DOMNode': {
+      const node = expr as DOMNode;
+      const attrs = Object.entries(node.attributes)
+        .map(([key, value]) => `${key}="${value}"`)
+        .join(' ');
+      const attrsStr = attrs ? ' ' + attrs : '';
+      
+      if (node.children.length === 0) {
+        return `<${node.tagName}${attrsStr}>`;
+      } else {
+        const childrenStr = node.children
+          .map(child => typeof child === 'string' ? child : expressionToCode(child))
+          .join('');
+        return `<${node.tagName}${attrsStr}>${childrenStr}</${node.tagName}>`;
+      }
     }
     
     default:

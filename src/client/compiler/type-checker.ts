@@ -147,6 +147,7 @@ export const NUMBER_TYPE = new PrimitiveType('number');
 export const STRING_TYPE = new PrimitiveType('string');
 export const BOOLEAN_TYPE = new PrimitiveType('boolean');
 export const NULL_TYPE = new PrimitiveType('null');
+export const DOM_NODE_TYPE = new PrimitiveType('DOMNode');
 export const UNKNOWN_TYPE = new UnknownType();
 
 // Semantic analysis errors
@@ -211,7 +212,7 @@ export class TypeChecker {
     // Add runtime variables to type environment
     for (const [name, value] of runtimeBindings) {
       // Skip built-ins that are already in the type environment
-      if (name !== 'console' && name !== 'Math' && name !== 'delete') {
+      if (name !== 'console' && name !== 'Math' && name !== 'delete' && name !== 'uiHr') {
         const type = this.inferTypeFromRuntimeValue(value);
         this.environment.define(name, type);
       }
@@ -276,6 +277,9 @@ export class TypeChecker {
       ['PI', NUMBER_TYPE]
     ])));
     
+    // Built-in UI functions
+    env.define('uiHr', new FunctionType([], DOM_NODE_TYPE));
+    
     // Built-in delete function (special - accepts any reference type)
     env.define('delete', new FunctionType([UNKNOWN_TYPE], NULL_TYPE));
     
@@ -308,6 +312,8 @@ export class TypeChecker {
         return BOOLEAN_TYPE;
       case 'NullLiteral':
         return NULL_TYPE;
+      case 'DOMNode':
+        return DOM_NODE_TYPE;
       case 'ObjectLiteral':
         return this.checkObjectLiteral(node as ObjectLiteral);
       case 'ArrayLiteral':

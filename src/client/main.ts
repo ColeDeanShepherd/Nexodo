@@ -1,6 +1,6 @@
 import { createReplParser } from './compiler/grammar'
 import { Lexer } from './compiler/lexer'
-import { ArrayLiteral, buildAST } from './compiler/ast'
+import { ArrayLiteral, buildAST, DOMNode } from './compiler/ast'
 import { TypeChecker, formatTypeError, formatType } from './compiler/type-checker'
 import { Interpreter, formatRuntimeValue, formatRuntimeError, expressionToCode, EnvironmentBinding } from './compiler/interpreter'
 import { EnvironmentService } from './environment-service'
@@ -614,7 +614,12 @@ class REPL {
           this.addOutput(formatRuntimeError(error), 'error');
         }
       } else {
-        this.addOutput(`Value: ${formatRuntimeValue(executionResult.value)}`, 'output');
+        // Check if the result is a DOMNode and render it as HTML
+        if (executionResult.value.nodeType === 'DOMNode') {
+          this.addDOMOutput(executionResult.value as DOMNode);
+        } else {
+          this.addOutput(`Value: ${formatRuntimeValue(executionResult.value)}`, 'output');
+        }
       }
       
       // Show console output if any
@@ -657,6 +662,35 @@ class REPL {
     const line = _div({ class: `repl-output-line ${type}` }, [text])
     this.outputElement.appendChild(line)
     this.outputElement.scrollTop = this.outputElement.scrollHeight
+  }
+
+  private addDOMOutput(domNode: DOMNode) {
+    // Create the actual DOM element from the DOMNode
+    const htmlElement = this.createHTMLElement(domNode);
+    const line = _div({ class: 'repl-output-line output' }, []);
+    line.appendChild(htmlElement);
+    this.outputElement.appendChild(line);
+    this.outputElement.scrollTop = this.outputElement.scrollHeight;
+  }
+
+  private createHTMLElement(domNode: DOMNode): HTMLElement {
+    const element = document.createElement(domNode.tagName);
+    
+    // Set attributes
+    for (const [key, value] of Object.entries(domNode.attributes)) {
+      element.setAttribute(key, value);
+    }
+    
+    // Add children
+    for (const child of domNode.children) {
+      if (typeof child === 'string') {
+        element.appendChild(document.createTextNode(child));
+      } else {
+        element.appendChild(this.createHTMLElement(child));
+      }
+    }
+    
+    return element;
   }
 }
 
