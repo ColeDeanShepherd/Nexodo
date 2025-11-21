@@ -15,7 +15,7 @@ import {
   ArrayAccess,
   Program
 } from './ast';
-import { RuntimeEnvironment } from './interpreter';
+import { RuntimeEnvironment } from './runtime-environment';
 import { 
   Type, 
   PrimitiveType, 
