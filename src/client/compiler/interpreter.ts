@@ -27,9 +27,11 @@ import { RuntimeEnvironment, EnvironmentBinding, RuntimeError, InterpreterInterf
 export class Interpreter implements InterpreterInterface {
   private environment: RuntimeEnvironment;
   private output: string[] = [];
+  private builtInBindingNames: Set<string> = new Set([]);
 
-  constructor(globalEnvironment?: RuntimeEnvironment) {
-    this.environment = globalEnvironment || this.createBuiltinEnvironment();
+  constructor() {
+    this.environment = this.createBuiltinEnvironment();
+    this.builtInBindingNames = new Set(this.environment.getAllBindingsWithExpressions().keys());
   }
 
   private createBuiltinEnvironment(): RuntimeEnvironment {
@@ -838,12 +840,11 @@ export class Interpreter implements InterpreterInterface {
 
   // Get only user-defined bindings (exclude built-ins like console, Math)
   getUserDefinedBindings(): Map<string, EnvironmentBinding> {
-    const builtins = new Set(['console', 'Math', 'delete', 'uiHr']);
     const allBindingsWithExpressions = this.environment.getAllBindingsWithExpressions();
     const userBindings = new Map<string, EnvironmentBinding>();
 
     for (const [name, binding] of allBindingsWithExpressions) {
-      if (!builtins.has(name)) {
+      if (!this.builtInBindingNames.has(name)) {
         userBindings.set(name, binding);
       }
     }
