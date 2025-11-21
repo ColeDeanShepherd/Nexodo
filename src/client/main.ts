@@ -156,8 +156,8 @@ class REPL {
   private inputElement!: HTMLInputElement
   private history: string[] = []
   private historyIndex = -1
-  private typeChecker = new TypeChecker()
   private interpreter = new Interpreter()
+  private typeChecker = new TypeChecker(this.interpreter.getEnvironment())
   private auth = new Auth()
   private envService = new EnvironmentService(() => this.auth.getToken())
   private loginContainer!: HTMLElement
@@ -278,8 +278,6 @@ class REPL {
       const serializedEnv = await this.envService.loadEnvironment()
       if (serializedEnv) {
         this.interpreter.loadEnvironment(serializedEnv)
-        // Also update type checker with the loaded environment
-        this.typeChecker.updateEnvironment(this.interpreter.getEnvironment())
         this.addOutput('Loaded previous session variables from server', 'info')
       }
       this.updateEnvironmentDisplay()
@@ -634,8 +632,6 @@ class REPL {
       try {
         const serializedEnv = this.interpreter.saveEnvironment()
         await this.envService.saveEnvironment(serializedEnv)
-        // Update type checker with current environment
-        this.typeChecker.updateEnvironment(this.interpreter.getEnvironment())
         this.updateEnvironmentDisplay(); // Update display after successful save
       } catch (saveError) {
         console.warn('Failed to save environment:', saveError);

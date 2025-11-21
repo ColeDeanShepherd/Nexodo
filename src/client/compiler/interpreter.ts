@@ -19,12 +19,14 @@ import {
   BuiltInCodeNode,
   DOMNode
 } from './ast';
-import { NUMBER_TYPE, STRING_TYPE } from './type-checker';
+// Import Type from type-checker (avoiding circular dependency by importing just what we need)
+import { Type, PrimitiveType, ObjectType, ArrayType, FunctionType, UnknownType, NUMBER_TYPE, STRING_TYPE, BOOLEAN_TYPE, NULL_TYPE, DOM_NODE_TYPE, UNKNOWN_TYPE } from './type-checker-types';
 
-// Environment binding - stores both value and optional expression
+// Environment binding - stores value, expression, and optional type information
 export interface EnvironmentBinding {
   value?: Expression;
   expression?: Expression;
+  type?: Type;
 }
 
 // Runtime errors
@@ -40,31 +42,29 @@ export class RuntimeError extends Error {
 
 // Runtime environment for variable bindings
 export class RuntimeEnvironment {
-  private interpreter: Interpreter;
   private bindings = new Map<string, EnvironmentBinding>();
   private parent?: RuntimeEnvironment;
 
-  constructor(interpreter: Interpreter, parent?: RuntimeEnvironment) {
-    this.interpreter = interpreter;
+  constructor(parent?: RuntimeEnvironment) {
     this.parent = parent;
   }
 
-  define(name: string, value?: Expression, expression?: Expression): void {
-    this.bindings.set(name, { value, expression });
+  define(name: string, value?: Expression, expression?: Expression, type?: Type): void {
+    this.bindings.set(name, { value, expression, type });
   }
 
   getParent(): RuntimeEnvironment | undefined {
     return this.parent;
   }
 
-  get(name: string): Expression {
+  get(name: string, interpreter: Interpreter): Expression {
     const binding = this.bindings.get(name);
     if (binding !== undefined) {
-      return this.interpreter.getBindingValue(binding);
+      return interpreter.getBindingValue(binding);
     }
 
     if (this.parent) {
-      return this.parent.get(name);
+      return this.parent.get(name, interpreter);
     }
     
     throw new RuntimeError(`Undefined variable: ${name}`);
@@ -81,22 +81,23 @@ export class RuntimeEnvironment {
     return undefined;
   }
 
-  set(name: string, value: Expression, expression?: Expression): void {
+  set(name: string, value: Expression, expression?: Expression, type?: Type): void {
     if (this.bindings.has(name)) {
-      this.bindings.set(name, { value, expression });
+      const existingBinding = this.bindings.get(name)!;
+      this.bindings.set(name, { value, expression, type: type || existingBinding.type });
       return;
     }
     
     if (this.parent) {
       try {
-        this.parent.set(name, value, expression);
+        this.parent.set(name, value, expression, type);
         return;
       } catch (e) {
         // If parent doesn't have it, define it here
       }
     }
     
-    this.bindings.set(name, { value, expression });
+    this.bindings.set(name, { value, expression, type });
   }
 
   delete(name: string): boolean {
@@ -113,13 +114,13 @@ export class RuntimeEnvironment {
   }
 
   createChild(): RuntimeEnvironment {
-    return new RuntimeEnvironment(this.interpreter, this);
+    return new RuntimeEnvironment(this);
   }
 
-  getAllBindings(): Map<string, Expression> {
-    const result = new Map(this.parent?.getAllBindings() || []);
+  getAllBindings(interpreter: Interpreter): Map<string, Expression> {
+    const result = new Map(this.parent?.getAllBindings(interpreter) || []);
     for (const [key, binding] of this.bindings) {
-      result.set(key, this.interpreter.getBindingValue(binding));
+      result.set(key, interpreter.getBindingValue(binding));
     }
     return result;
   }
@@ -128,6 +129,28 @@ export class RuntimeEnvironment {
     const result = new Map(this.parent?.getAllBindingsWithExpressions() || []);
     for (const [key, binding] of this.bindings) {
       result.set(key, binding);
+    }
+    return result;
+  }
+
+  // Type-related methods for static analysis
+  defineType(name: string, type: Type): void {
+    const existing = this.bindings.get(name);
+    this.bindings.set(name, { ...existing, type });
+  }
+
+  lookupType(name: string): Type | undefined {
+    const binding = this.bindings.get(name);
+    if (binding?.type) return binding.type;
+    return this.parent?.lookupType(name);
+  }
+
+  getAllTypes(): Map<string, Type> {
+    const result = new Map(this.parent?.getAllTypes() || []);
+    for (const [key, binding] of this.bindings) {
+      if (binding.type) {
+        result.set(key, binding.type);
+      }
     }
     return result;
   }
@@ -143,7 +166,7 @@ export class Interpreter {
   }
 
   private createBuiltinEnvironment(): RuntimeEnvironment {
-    const env = new RuntimeEnvironment(this);
+    const env = new RuntimeEnvironment();
     const dummyToken: any = { type: 'BUILTIN', value: '', position: 0, line: 0, column: 0 };
     
     // Built-in console object
@@ -154,7 +177,7 @@ export class Interpreter {
           [new Parameter('message', STRING_TYPE)],
           [
             new BuiltInCodeNode(() => {
-              const message = this.environment.get('message');
+              const message = this.environment.get('message', this);
               const messageStr = this.expressionToCode(message);
               this.output.push(messageStr);
               return new NullLiteral();
@@ -172,7 +195,7 @@ export class Interpreter {
           [new Parameter('x', NUMBER_TYPE)], 
           [
             new BuiltInCodeNode(() => {
-              const x = this.environment.get('x');
+              const x = this.environment.get('x', this);
               if (x.nodeType !== 'NumberLiteral') {
                 throw new RuntimeError(`Math.abs expects a number, got ${x.nodeType}`);
               }
@@ -187,8 +210,8 @@ export class Interpreter {
           [new Parameter('a', NUMBER_TYPE), new Parameter('b', NUMBER_TYPE)],
           [
             new BuiltInCodeNode(() => {
-              const a = this.environment.get('a');
-              const b = this.environment.get('b');
+              const a = this.environment.get('a', this);
+              const b = this.environment.get('b', this);
               if (a.nodeType !== 'NumberLiteral' || b.nodeType !== 'NumberLiteral') {
                 throw new RuntimeError(`Math.max expects numbers, got ${a.nodeType} and ${b.nodeType}`);
               }
@@ -206,8 +229,8 @@ export class Interpreter {
           [new Parameter('a', NUMBER_TYPE), new Parameter('b', NUMBER_TYPE)],
           [
             new BuiltInCodeNode(() => {
-              const a = this.environment.get('a');
-              const b = this.environment.get('b');
+              const a = this.environment.get('a', this);
+              const b = this.environment.get('b', this);
               if (a.nodeType !== 'NumberLiteral' || b.nodeType !== 'NumberLiteral') {
                 throw new RuntimeError(`Math.min expects numbers, got ${a.nodeType} and ${b.nodeType}`);
               }
@@ -222,8 +245,15 @@ export class Interpreter {
       new ObjectProperty('PI', new NumberLiteral(Math.PI, dummyToken))
     ]);
     
-    env.define('console', consoleObj);
-    env.define('Math', mathObj);
+    env.define('console', consoleObj, undefined, new ObjectType(new Map([
+      ['log', new FunctionType([UNKNOWN_TYPE], NULL_TYPE)]
+    ])));
+    env.define('Math', mathObj, undefined, new ObjectType(new Map([
+      ['abs', new FunctionType([NUMBER_TYPE], NUMBER_TYPE)],
+      ['max', new FunctionType([NUMBER_TYPE, NUMBER_TYPE], NUMBER_TYPE)],
+      ['min', new FunctionType([NUMBER_TYPE, NUMBER_TYPE], NUMBER_TYPE)],
+      ['PI', NUMBER_TYPE]
+    ])));
     
     // Built-in UI functions
     const uiHrFunc = new Function(
@@ -235,10 +265,10 @@ export class Interpreter {
         })
       ]
     );
-    env.define('uiHr', uiHrFunc);
+    env.define('uiHr', uiHrFunc, undefined, new FunctionType([], DOM_NODE_TYPE));
     
     // Built-in delete function (special - argument not evaluated)
-    env.define('delete', '__DELETE_BUILTIN__' as any);
+    env.define('delete', '__DELETE_BUILTIN__' as any, undefined, new FunctionType([UNKNOWN_TYPE], NULL_TYPE));
     
     return env;
   }
@@ -508,7 +538,7 @@ export class Interpreter {
   }
 
   private evaluateIdentifier(node: Identifier): Expression {
-    return this.environment.get(node.name);
+    return this.environment.get(node.name, this);
   }
 
   private evaluateFunctionCall(node: FunctionCall): Expression {
@@ -714,7 +744,7 @@ export class Interpreter {
             [new Parameter('element')],
             [
               new BuiltInCodeNode(() => {
-                const element = this.environment.get('element');
+                const element = this.environment.get('element', this);
                 arrayLiteral.elements.push(element);
                 return new NullLiteral();
                 // const newElements = [...arrayLiteral.elements, element];
@@ -727,7 +757,7 @@ export class Interpreter {
             [new Parameter('index', NUMBER_TYPE)],
             [
               new BuiltInCodeNode(() => {
-                const indexExpr = this.environment.get('index');
+                const indexExpr = this.environment.get('index', this);
                 if (indexExpr.nodeType !== 'NumberLiteral') {
                   throw new RuntimeError(`Index must be a number, got ${indexExpr.nodeType}`);
                 }
@@ -941,7 +971,7 @@ export class Interpreter {
 
   // Get only user-defined bindings (exclude built-ins like console, Math)
   getUserDefinedBindings(): Map<string, EnvironmentBinding> {
-    const builtins = new Set(['console', 'Math', 'delete']);
+    const builtins = new Set(['console', 'Math', 'delete', 'uiHr']);
     const allBindingsWithExpressions = this.environment.getAllBindingsWithExpressions();
     const userBindings = new Map<string, EnvironmentBinding>();
 
