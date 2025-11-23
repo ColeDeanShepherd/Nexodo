@@ -22,6 +22,7 @@ import {
 // Import Type from type-checker (avoiding circular dependency by importing just what we need)
 import { Type, PrimitiveType, ObjectType, ArrayType, FunctionType, UnknownType, NUMBER_TYPE, STRING_TYPE, BOOLEAN_TYPE, NULL_TYPE, DOM_NODE_TYPE, UNKNOWN_TYPE } from './type-checker-types';
 import { RuntimeEnvironment, EnvironmentBinding, RuntimeError, InterpreterInterface } from './runtime-environment';
+import { TypeChecker } from './type-checker';
 
 // Interpreter
 export class Interpreter implements InterpreterInterface {
@@ -828,12 +829,15 @@ export class Interpreter implements InterpreterInterface {
     }
     
     // PASS 2: Evaluate all expressions now that all names are bound
+    const typeChecker = new TypeChecker(this.environment);
     for (const [name, value] of deserializedBindings) {
       if (value instanceof Expression) {
         // Now evaluate the expression with all bindings available
         const evaluatedValue = this.evaluateNode(value);
-        // Update the binding with the evaluated value, keeping the expression
-        this.environment.set(name, evaluatedValue, value);
+        // Infer the type from the expression
+        const { type } = typeChecker.analyze(value);
+        // Update the binding with the evaluated value, expression, and inferred type
+        this.environment.set(name, evaluatedValue, value, type);
       }
     }
   }
