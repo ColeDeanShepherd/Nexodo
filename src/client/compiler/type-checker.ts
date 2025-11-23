@@ -113,7 +113,7 @@ export class TypeChecker {
     // If assignment target is an identifier, define the variable
     if ((node as any).target && (node as any).target.nodeType === 'Identifier') {
       const identifier = (node as any).target as Identifier;
-        this.environment.defineType(identifier.name, valueType);
+        this.environment.defineType(identifier.name, valueType, node.value);
       return valueType;
     }
 

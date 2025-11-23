@@ -121,9 +121,9 @@ export class RuntimeEnvironment {
   }
 
   // Type-related methods for static analysis
-  defineType(name: string, type: Type): void {
+  defineType(name: string, type: Type, expression: Expression): void {
     const existing = this.bindings.get(name);
-    this.bindings.set(name, { ...existing, type });
+    this.bindings.set(name, { ...existing, type, expression });
   }
 
   lookupType(name: string): Type | undefined {
