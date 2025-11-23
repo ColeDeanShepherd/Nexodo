@@ -137,6 +137,45 @@ export class Interpreter implements InterpreterInterface {
     );
     env.define('uiHr', uiHrFunc, undefined, new FunctionType([], DOM_NODE_TYPE));
     
+    const uiPFunc = new Function(
+      [new Parameter('children', new ArrayType(DOM_NODE_TYPE))],
+      [
+        new BuiltInCodeNode(() => {
+          const children = this.environment.get('children', this);
+          if (children.nodeType !== 'ArrayLiteral') {
+            throw new RuntimeError(`uiP expects an array, got ${children.nodeType}`);
+          }
+          const childrenArray = children as ArrayLiteral;
+          const domChildren: (string | DOMNode)[] = [];
+          for (const child of childrenArray.elements) {
+            if (child.nodeType === 'DOMNode') {
+              domChildren.push(child as DOMNode);
+            } else if (child.nodeType === 'StringLiteral') {
+              domChildren.push((child as StringLiteral).value);
+            } else {
+              throw new RuntimeError(`uiP child must be a DOMNode or string, got ${child.nodeType}`);
+            }
+          }
+          return new DOMNode('p', {}, domChildren);
+        })
+      ]
+    );
+    env.define('uiP', uiPFunc, undefined, new FunctionType([new ArrayType(DOM_NODE_TYPE)], DOM_NODE_TYPE));
+    
+    const uiTextFunc = new Function(
+      [new Parameter('text', STRING_TYPE)],
+      [
+        new BuiltInCodeNode(() => {
+          const text = this.environment.get('text', this);
+          if (text.nodeType !== 'StringLiteral') {
+            throw new RuntimeError(`uiText expects a string, got ${text.nodeType}`);
+          }
+          return new DOMNode('span', {}, [(text as StringLiteral).value]);
+        })
+      ]
+    );
+    env.define('uiText', uiTextFunc, undefined, new FunctionType([STRING_TYPE], DOM_NODE_TYPE));
+    
     // Built-in delete function (special - argument not evaluated)
     env.define('delete', '__DELETE_BUILTIN__' as any, undefined, new FunctionType([UNKNOWN_TYPE], NULL_TYPE));
     
