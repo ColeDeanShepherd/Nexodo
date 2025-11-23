@@ -246,23 +246,39 @@ class REPL {
   private renderEditableBindingValue(name: string, binding: EnvironmentBinding): HTMLElement | string {
     const value = binding.value!;
 
+    // if is DOMNode, render as actual HTML
+    if (value.nodeType === 'DOMNode') {
+      const domNode = value as DOMNode;
+      return this.createHTMLElement(domNode);
+    }
+
     // if is array, then render each element on a separate line
     if (value.nodeType === 'ArrayLiteral') {
       const arrayLiteral = value as ArrayLiteral;
       const container = _div({ class: 'env-var-array' });
       container.appendChild(_div(['[']));
       for (const element of arrayLiteral.elements) {
-        const elementStr = formatRuntimeValue(element);
+        // Check if element is a DOMNode
+        let elementContent: HTMLElement | string;
+        if (element.nodeType === 'DOMNode') {
+          elementContent = this.createHTMLElement(element as DOMNode);
+        } else {
+          elementContent = formatRuntimeValue(element);
+        }
 
         const deleteBtn = _button({ class: 'delete-button' }, ['x']);
         deleteBtn.addEventListener('click', async () => {
           this.executeCommand(`delete(${name}[${arrayLiteral.elements.indexOf(element)}])`);
         });
 
-        const elementLine = _div({ class: 'env-var-array-element' }, [
-          elementStr,
-          deleteBtn
-        ]);
+        const elementLine = _div({ class: 'env-var-array-element' });
+        if (typeof elementContent === 'string') {
+          elementLine.appendChild(document.createTextNode(elementContent));
+        } else {
+          elementLine.appendChild(elementContent);
+        }
+        elementLine.appendChild(deleteBtn);
+        
         container.appendChild(elementLine);
       }
       container.appendChild(_div([']']));
