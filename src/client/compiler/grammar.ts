@@ -28,6 +28,7 @@ export function createReplGrammar(): Record<string, GrammarRule> {
     new Terminal(TokenType.BOOLEAN, ParseNodeType.Literal),
     new Terminal(TokenType.NULL, ParseNodeType.Literal),
     new Terminal(TokenType.IDENTIFIER, ParseNodeType.Identifier),
+    new NonTerminal('lambda'),
     new NonTerminal('object'),
     new NonTerminal('array')
   );
@@ -182,6 +183,45 @@ export function createReplGrammar(): Record<string, GrammarRule> {
     ParseNodeType.Token, // container type for elements  
     true, // allow empty
     true   // allow trailing comma in arrays
+  );
+
+  // Lambda expression: fn (param: type, ...) -> expression
+  grammar['lambda'] = new Sequence(
+    ParseNodeType.Expression, // Lambda is a type of expression
+    new Terminal(TokenType.FN),
+    new Terminal(TokenType.LPAREN),
+    new NonTerminal('lambda_parameter_list'),
+    new Terminal(TokenType.RPAREN),
+    new Terminal(TokenType.ARROW),
+    new NonTerminal('expression')
+  );
+
+  // Lambda parameter list: param: type, param: type, ...
+  grammar['lambda_parameter_list'] = new TokenSeparatedList(
+    new NonTerminal('lambda_parameter'),
+    TokenType.COMMA,
+    ParseNodeType.Token, // container type for parameters
+    true, // allow empty (no parameters)
+    false // don't allow trailing comma
+  );
+
+  // Lambda parameter: name: type
+  grammar['lambda_parameter'] = new Sequence(
+    ParseNodeType.Token, // Individual parameter
+    new Terminal(TokenType.IDENTIFIER, ParseNodeType.Identifier),
+    new Terminal(TokenType.COLON),
+    new NonTerminal('type_annotation')
+  );
+
+  // Type annotation: number | string | boolean | null | identifier[] | identifier
+  grammar['type_annotation'] = new Choice(
+    new Sequence(
+      ParseNodeType.Token,
+      new Terminal(TokenType.IDENTIFIER, ParseNodeType.Identifier),
+      new Terminal(TokenType.LBRACKET),
+      new Terminal(TokenType.RBRACKET)
+    ),
+    new Terminal(TokenType.IDENTIFIER, ParseNodeType.Identifier)
   );
 
   return grammar;

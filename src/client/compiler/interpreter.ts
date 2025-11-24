@@ -17,10 +17,11 @@ import {
   Function,
   Parameter,
   BuiltInCodeNode,
-  DOMNode
+  DOMNode,
+  LambdaExpression
 } from './ast';
 // Import Type from type-checker (avoiding circular dependency by importing just what we need)
-import { Type, PrimitiveType, ObjectType, ArrayType, FunctionType, UnknownType, NUMBER_TYPE, STRING_TYPE, BOOLEAN_TYPE, NULL_TYPE, DOM_NODE_TYPE, UNKNOWN_TYPE } from './type-checker-types';
+import { Type, PrimitiveType, ObjectType, ArrayType, FunctionType, UnknownType, NUMBER_TYPE, STRING_TYPE, BOOLEAN_TYPE, NULL_TYPE, DOM_NODE_TYPE, UNKNOWN_TYPE, TypeVariable, GenericFunctionType } from './type-checker-types';
 import { RuntimeEnvironment, EnvironmentBinding, RuntimeError, InterpreterInterface } from './runtime-environment';
 import { TypeChecker } from './type-checker';
 
@@ -124,6 +125,58 @@ export class Interpreter implements InterpreterInterface {
       ['min', new FunctionType([NUMBER_TYPE, NUMBER_TYPE], NUMBER_TYPE)],
       ['PI', NUMBER_TYPE]
     ])));
+    
+    // Built-in map function: map(fn, array) -> array
+    // Generic type: <T, U>(fn: (T) -> U, arr: T[]) -> U[]
+    const mapFunc = new Function(
+      [
+        new Parameter('fn', UNKNOWN_TYPE), // Will be a function type at runtime
+        new Parameter('arr', UNKNOWN_TYPE) // Will be an array type at runtime
+      ],
+      [
+        new BuiltInCodeNode(() => {
+          const fn = this.environment.get('fn', this);
+          const arr = this.environment.get('arr', this);
+          
+          if (fn.nodeType !== 'Function') {
+            throw new RuntimeError(`map expects a function as first argument, got ${fn.nodeType}`);
+          }
+          
+          if (arr.nodeType !== 'ArrayLiteral') {
+            throw new RuntimeError(`map expects an array as second argument, got ${arr.nodeType}`);
+          }
+          
+          const fnNode = fn as Function;
+          const arrNode = arr as ArrayLiteral;
+          
+          // Map over the array elements
+          const mappedElements: Expression[] = [];
+          for (const element of arrNode.elements) {
+            // Create a function call node for fn(element)
+            const callNode = new FunctionCall(fn, [element]);
+            // Evaluate the function call
+            const result = this.evaluateFunctionCall(callNode);
+            mappedElements.push(result);
+          }
+          
+          return new ArrayLiteral(mappedElements);
+        })
+      ]
+    );
+    
+    // Define the map function with a generic type
+    const T = new TypeVariable('T');
+    const U = new TypeVariable('U');
+    env.define(
+      'map',
+      mapFunc,
+      undefined,
+      new GenericFunctionType(
+        [T, U],
+        [new FunctionType([T], U), new ArrayType(T)],
+        new ArrayType(U)
+      )
+    );
     
     // Built-in UI functions
     const uiHrFunc = new Function(
@@ -230,6 +283,8 @@ export class Interpreter implements InterpreterInterface {
       case 'ObjectLiteral':
       case 'ArrayLiteral':
         return node;
+      case 'LambdaExpression':
+        return this.evaluateLambdaExpression(node as any);
       case 'FunctionCall':
         return this.evaluateFunctionCall(node as FunctionCall);
       case 'MemberAccess':
@@ -450,6 +505,27 @@ export class Interpreter implements InterpreterInterface {
 
   private evaluateIdentifier(node: Identifier): Expression {
     return this.environment.get(node.name, this);
+  }
+
+  private evaluateLambdaExpression(node: LambdaExpression): Expression {
+    // Lambda expressions are converted to Function nodes with closure support
+    // We capture the current environment as the closure environment
+    const closureEnv = this.environment;
+    
+    // Create a Function node that will use the captured environment
+    // We wrap the body expression in a BuiltInCodeNode that evaluates it
+    const lambdaFunction = new Function(
+      node.parameters,
+      [
+        new BuiltInCodeNode(() => {
+          // When the lambda is called, evaluate the body in the closure environment
+          // with the current environment as parent (for accessing parameters)
+          return this.evaluateNode(node.body);
+        })
+      ]
+    );
+    
+    return lambdaFunction;
   }
 
   private evaluateFunctionCall(node: FunctionCall): Expression {

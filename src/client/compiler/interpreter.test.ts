@@ -251,3 +251,70 @@ test('replaceSubExprInLiteral - should throw error for non-literal path', () => 
   }).toThrow('not a constant object literal');
 });
 
+// Lambda and map function tests
+test('should parse and evaluate a simple lambda expression', () => {
+  const code = `fn (x: number) -> x`;
+  
+  const result = interpret(code);
+  expect(result.errors).toHaveLength(0);
+  expect(result.value.nodeType).toBe('Function');
+});
+
+test('should call a lambda function with map', () => {
+  const code = `map(fn (x: number) -> x + 1, [1, 2, 3])`;
+  
+  const result = interpret(code);
+  expect(result.errors).toHaveLength(0);
+  expect(result.value.nodeType).toBe('ArrayLiteral');
+  const arr = result.value as any;
+  expect(arr.elements).toHaveLength(3);
+  expect(arr.elements[0].value).toBe(2);
+  expect(arr.elements[1].value).toBe(3);
+  expect(arr.elements[2].value).toBe(4);
+});
+
+test('should use map to double numbers', () => {
+  const code = `map(fn (n: number) -> n * 2, [5, 10, 15])`;
+  
+  const result = interpret(code);
+  expect(result.errors).toHaveLength(0);
+  const arr = result.value as any;
+  expect(arr.elements[0].value).toBe(10);
+  expect(arr.elements[1].value).toBe(20);
+  expect(arr.elements[2].value).toBe(30);
+});
+
+test('should use map to transform strings', () => {
+  const code = `
+    nums: [1, 2, 3]
+    map(fn (x: number) -> x * x, nums)
+  `;
+  
+  const result = interpret(code);
+  expect(result.errors).toHaveLength(0);
+  const arr = result.value as any;
+  expect(arr.elements[0].value).toBe(1);
+  expect(arr.elements[1].value).toBe(4);
+  expect(arr.elements[2].value).toBe(9);
+});
+
+test('should handle lambda with multiple parameters', () => {
+  // First we need to create a function that can use a 2-param lambda
+  // For now, test with a simple lambda
+  const code = `fn (x: number, y: number) -> x + y`;
+  
+  const result = interpret(code);
+  expect(result.errors).toHaveLength(0);
+  expect(result.value.nodeType).toBe('Function');
+});
+
+test('should handle empty array with map', () => {
+  const code = `map(fn (x: number) -> x + 1, [])`;
+  
+  const result = interpret(code);
+  expect(result.errors).toHaveLength(0);
+  const arr = result.value as any;
+  expect(arr.elements).toHaveLength(0);
+});
+
+

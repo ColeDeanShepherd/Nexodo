@@ -1,6 +1,6 @@
 import { Token } from './lexer';
 import { ParseNode, ParseNodeType } from './parser';
-import { Type } from './type-checker';
+import { Type, ArrayType, PrimitiveType, NUMBER_TYPE, STRING_TYPE, BOOLEAN_TYPE, NULL_TYPE } from './type-checker-types';
 
 // Abstract Syntax Tree Node Types
 export abstract class ASTNode {
@@ -168,6 +168,18 @@ export class Parameter extends ASTNode {
   }
 }
 
+// Lambda expression (anonymous function)
+export class LambdaExpression extends Expression {
+  readonly nodeType = 'LambdaExpression';
+
+  constructor(
+    public parameters: Parameter[],
+    public body: Expression
+  ) {
+    super();
+  }
+}
+
 // Program (top-level)
 export class Program extends ASTNode {
   readonly nodeType = 'Program';
@@ -251,6 +263,14 @@ export class ASTBuilder {
   }
 
   private buildExpression(node: ParseNode): Expression {
+    // Check if this is a lambda expression (fn (...) -> expr)
+    if (node.children.length > 0) {
+      const firstChild = node.children[0];
+      if (firstChild.token && firstChild.token.type === 'FN' as any) {
+        return this.buildLambdaExpression(node);
+      }
+    }
+
     // Expression nodes typically wrap other nodes
     if (node.children.length === 1) {
       const child = this.build(node.children[0]);
@@ -488,6 +508,101 @@ export class ASTBuilder {
     const index = this.build(indexNode) as Expression;
     
     return new ArrayAccess(object, index);
+  }
+
+  private buildLambdaExpression(node: ParseNode): LambdaExpression {
+    // Lambda structure: fn ( params ) -> expression
+    // node.children: [FN, LPAREN, param_list, RPAREN, ARROW, expression]
+    
+    const children = node.children;
+    if (children.length < 6) {
+      throw new Error('Lambda expression requires at least 6 children');
+    }
+
+    // Find the parameter list node (should be the 3rd child)
+    const paramListNode = children[2];
+    const bodyNode = children[5]; // The expression after the arrow
+
+    // Parse parameters
+    const parameters: Parameter[] = [];
+    if (paramListNode.children && paramListNode.children.length > 0) {
+      for (const paramChild of paramListNode.children) {
+        if (paramChild.type === ParseNodeType.Token && paramChild.children) {
+          // This is a parameter node: identifier : type_annotation
+          const paramChildren = paramChild.children;
+          if (paramChildren.length >= 3) {
+            const nameNode = paramChildren[0];
+            const typeNode = paramChildren[2];
+            
+            if (nameNode.token && nameNode.type === ParseNodeType.Identifier) {
+              const paramName = nameNode.token.value;
+              const paramType = this.parseTypeAnnotation(typeNode);
+              parameters.push(new Parameter(paramName, paramType));
+            }
+          }
+        }
+      }
+    }
+
+    // Build the body expression
+    const body = this.build(bodyNode);
+    if (!(body instanceof Expression)) {
+      throw new Error('Lambda body must be an expression');
+    }
+
+    return new LambdaExpression(parameters, body);
+  }
+
+  private parseTypeAnnotation(node: ParseNode): Type {
+    // Type annotation can be:
+    // - identifier (e.g., "number", "string")
+    // - identifier[] (array type)
+    
+    if (!node) {
+      throw new Error('Type annotation node is missing');
+    }
+
+    // Check if this is an array type (identifier[])
+    if (node.children && node.children.length >= 3) {
+      const identNode = node.children[0];
+      if (identNode.token && identNode.type === ParseNodeType.Identifier) {
+        const baseTypeName = identNode.token.value;
+        const baseType = this.getTypeFromName(baseTypeName);
+        return new ArrayType(baseType);
+      }
+    }
+
+    // Single identifier type
+    if (node.token && node.type === ParseNodeType.Identifier) {
+      return this.getTypeFromName(node.token.value);
+    }
+
+    // If it has one child that's an identifier, use that
+    if (node.children && node.children.length === 1) {
+      const child = node.children[0];
+      if (child.token && child.type === ParseNodeType.Identifier) {
+        return this.getTypeFromName(child.token.value);
+      }
+    }
+
+    throw new Error('Invalid type annotation');
+  }
+
+  private getTypeFromName(typeName: string): Type {
+    switch (typeName) {
+      case 'number':
+        return NUMBER_TYPE;
+      case 'string':
+        return STRING_TYPE;
+      case 'boolean':
+        return BOOLEAN_TYPE;
+      case 'null':
+        return NULL_TYPE;
+      default:
+        // For unknown types, return a primitive type with that name
+        // This allows for future extensibility
+        return new PrimitiveType(typeName);
+    }
   }
 }
 

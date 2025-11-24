@@ -124,6 +124,91 @@ export class UnknownType extends Type {
   }
 }
 
+// Type variable for generic types (e.g., T, U)
+export class TypeVariable extends Type {
+  readonly typeName = 'typevar';
+
+  constructor(public readonly name: string) {
+    super();
+  }
+
+  equals(other: Type): boolean {
+    return other instanceof TypeVariable && other.name === this.name;
+  }
+
+  toString(): string {
+    return this.name;
+  }
+}
+
+// Generic function type - will be instantiated with concrete types when used
+export class GenericFunctionType extends Type {
+  readonly typeName = 'generic-function';
+
+  constructor(
+    public readonly typeParameters: TypeVariable[],
+    public readonly parameterTypes: Type[],
+    public readonly returnType: Type
+  ) {
+    super();
+  }
+
+  equals(other: Type): boolean {
+    if (!(other instanceof GenericFunctionType)) return false;
+    
+    if (this.typeParameters.length !== other.typeParameters.length) return false;
+    if (this.parameterTypes.length !== other.parameterTypes.length) return false;
+    
+    for (let i = 0; i < this.typeParameters.length; i++) {
+      if (!this.typeParameters[i].equals(other.typeParameters[i])) return false;
+    }
+    
+    for (let i = 0; i < this.parameterTypes.length; i++) {
+      if (!this.parameterTypes[i].equals(other.parameterTypes[i])) return false;
+    }
+    
+    return this.returnType.equals(other.returnType);
+  }
+
+  toString(): string {
+    const typeParams = this.typeParameters.map(t => t.toString()).join(', ');
+    const params = this.parameterTypes.map(t => t.toString()).join(', ');
+    return `<${typeParams}>(${params}) => ${this.returnType.toString()}`;
+  }
+
+  // Instantiate the generic type with concrete type arguments
+  instantiate(typeArguments: Type[]): FunctionType {
+    if (typeArguments.length !== this.typeParameters.length) {
+      throw new Error(`Expected ${this.typeParameters.length} type arguments, got ${typeArguments.length}`);
+    }
+
+    const substitution = new Map<string, Type>();
+    for (let i = 0; i < this.typeParameters.length; i++) {
+      substitution.set(this.typeParameters[i].name, typeArguments[i]);
+    }
+
+    const instantiatedParams = this.parameterTypes.map(t => this.substituteType(t, substitution));
+    const instantiatedReturn = this.substituteType(this.returnType, substitution);
+
+    return new FunctionType(instantiatedParams, instantiatedReturn);
+  }
+
+  private substituteType(type: Type, substitution: Map<string, Type>): Type {
+    if (type instanceof TypeVariable) {
+      return substitution.get(type.name) ?? type;
+    }
+    if (type instanceof ArrayType) {
+      return new ArrayType(this.substituteType(type.elementType, substitution));
+    }
+    if (type instanceof FunctionType) {
+      const params = type.parameterTypes.map(t => this.substituteType(t, substitution));
+      const returnType = this.substituteType(type.returnType, substitution);
+      return new FunctionType(params, returnType);
+    }
+    return type;
+  }
+}
+
 // Built-in types
 export const NUMBER_TYPE = new PrimitiveType('number');
 export const STRING_TYPE = new PrimitiveType('string');

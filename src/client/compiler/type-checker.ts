@@ -13,7 +13,9 @@ import {
   FunctionCall,
   MemberAccess,
   ArrayAccess,
-  Program
+  Program,
+  LambdaExpression,
+  Parameter
 } from './ast';
 import { RuntimeEnvironment } from './runtime-environment';
 import { 
@@ -89,6 +91,8 @@ export class TypeChecker {
         return this.checkMemberAccess(node as MemberAccess);
       case 'ArrayAccess':
         return this.checkArrayAccess(node as ArrayAccess);
+      case 'LambdaExpression':
+        return this.checkLambdaExpression(node as any);
       default:
         this.error(`Unknown node type: ${node.nodeType}`, node);
         return UNKNOWN_TYPE;
@@ -346,6 +350,31 @@ export class TypeChecker {
     
     // Return the element type of the array
     return objectType.elementType;
+  }
+
+  private checkLambdaExpression(node: LambdaExpression): Type {
+    // Create a new scope for the lambda parameters
+    const lambdaEnv = new RuntimeEnvironment(this.environment);
+    const savedEnv = this.environment;
+    this.environment = lambdaEnv;
+
+    // Add parameters to the lambda's environment
+    const paramTypes: Type[] = [];
+    for (const param of node.parameters) {
+      const paramType = param.type ?? UNKNOWN_TYPE;
+      paramTypes.push(paramType);
+      // Define the parameter in the lambda's environment
+      lambdaEnv.defineType(param.name, paramType, node);
+    }
+
+    // Check the body expression in the lambda's environment
+    const returnType = this.checkNode(node.body);
+
+    // Restore the original environment
+    this.environment = savedEnv;
+
+    // Return a function type
+    return new FunctionType(paramTypes, returnType);
   }
 
   private isAssignable(from: Type, to: Type): boolean {

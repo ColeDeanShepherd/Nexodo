@@ -7,6 +7,7 @@ export enum TokenType {
   
   // Identifiers and keywords
   IDENTIFIER = 'IDENTIFIER',
+  FN = 'FN',
   
   // Punctuation
   LPAREN = 'LPAREN',
@@ -18,6 +19,7 @@ export enum TokenType {
   COMMA = 'COMMA',
   COLON = 'COLON',
   DOT = 'DOT',
+  ARROW = 'ARROW',
   
   // Special
   WHITESPACE = 'WHITESPACE',
@@ -53,7 +55,11 @@ export class Lexer {
     { type: TokenType.BOOLEAN, regex: /^(true|false)/ },
     { type: TokenType.NULL, regex: /^null/ },
     
+    // Keywords (must come before identifiers)
+    { type: TokenType.FN, regex: /^fn/ },
+    
     // Punctuation
+    { type: TokenType.ARROW, regex: /^->/ },
     { type: TokenType.LPAREN, regex: /^\(/ },
     { type: TokenType.RPAREN, regex: /^\)/ },
     { type: TokenType.LBRACE, regex: /^\{/ },
