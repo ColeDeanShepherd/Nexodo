@@ -474,7 +474,7 @@ export class Interpreter implements InterpreterInterface {
       // Bind function parameters to arguments
       for (const [i, param] of funcNode.parameters.entries()) {
         const arg = args[i];
-        this.environment.set(param.name, arg);
+        this.environment.define(param.name, arg);
       }
 
       // Evaluate function body in new environment
