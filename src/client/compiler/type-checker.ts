@@ -354,6 +354,15 @@ export class TypeChecker {
     // Simple type compatibility - can be extended for more complex rules
     if (from.equals(to)) return true;
     if (to instanceof UnknownType) return true;
+    
+    // Allow empty arrays (unknown[]) to be assigned to any array type
+    if (from instanceof ArrayType && to instanceof ArrayType) {
+      // If 'from' is an unknown array (empty array), it can be assigned to any array type
+      if (from.elementType instanceof UnknownType) return true;
+      // Otherwise, check if element types are assignable
+      return this.isAssignable(from.elementType, to.elementType);
+    }
+    
     return false;
   }
 
