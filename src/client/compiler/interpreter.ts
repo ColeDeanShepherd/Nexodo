@@ -506,6 +506,12 @@ export class Interpreter implements InterpreterInterface {
     // Handle delete(identifier) - delete variable from environment
     if (target.nodeType === 'Identifier') {
       const identifier = target as Identifier;
+      
+      // Prevent deletion of built-in bindings
+      if (this.builtInBindingNames.has(identifier.name)) {
+        throw new RuntimeError(`Cannot delete built-in binding '${identifier.name}'`, target);
+      }
+      
       const deleted = this.environment.delete(identifier.name);
       if (!deleted) {
         throw new RuntimeError(`Variable '${identifier.name}' not found`, target);

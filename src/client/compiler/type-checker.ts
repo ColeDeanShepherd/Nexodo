@@ -51,8 +51,6 @@ export class TypeChecker {
     this.environment = globalEnvironment;
   }
 
-
-
   analyze(node: ASTNode): { type: Type; errors: SemanticError[] } {
     this.errors = [];
     const type = this.checkNode(node);
