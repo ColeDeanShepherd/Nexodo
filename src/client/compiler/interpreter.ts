@@ -148,12 +148,14 @@ export class Interpreter implements InterpreterInterface {
           const childrenArray = children as ArrayLiteral;
           const domChildren: (string | DOMNode)[] = [];
           for (const child of childrenArray.elements) {
-            if (child.nodeType === 'DOMNode') {
-              domChildren.push(child as DOMNode);
-            } else if (child.nodeType === 'StringLiteral') {
-              domChildren.push((child as StringLiteral).value);
+            // Evaluate the child expression first
+            const evaluatedChild = this.evaluateNode(child);
+            if (evaluatedChild.nodeType === 'DOMNode') {
+              domChildren.push(evaluatedChild as DOMNode);
+            } else if (evaluatedChild.nodeType === 'StringLiteral') {
+              domChildren.push((evaluatedChild as StringLiteral).value);
             } else {
-              throw new RuntimeError(`uiP child must be a DOMNode or string, got ${child.nodeType}`);
+              throw new RuntimeError(`uiP child must be a DOMNode or string, got ${evaluatedChild.nodeType}`);
             }
           }
           return new DOMNode('p', {}, domChildren);
