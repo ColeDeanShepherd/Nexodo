@@ -26,6 +26,8 @@ import {
   ArrayType, 
   FunctionType, 
   UnknownType, 
+  GenericFunctionType,
+  TypeVariable,
   NUMBER_TYPE, 
   STRING_TYPE, 
   BOOLEAN_TYPE, 
@@ -234,6 +236,11 @@ export class TypeChecker {
     
     const calleeType = this.checkNode(node.callee);
     
+    // Handle generic functions by inferring type arguments and instantiating
+    if (calleeType instanceof GenericFunctionType) {
+      return this.checkGenericFunctionCall(node, calleeType);
+    }
+    
     if (!(calleeType instanceof FunctionType)) {
       this.error(`Cannot call non-function type: ${calleeType.toString()}`, node as any);
       return UNKNOWN_TYPE;
@@ -262,6 +269,156 @@ export class TypeChecker {
     }
     
     return calleeType.returnType;
+  }
+
+  private checkGenericFunctionCall(node: FunctionCall, genericType: GenericFunctionType): Type {
+    // Check argument count first
+    if (node.args.length !== genericType.parameterTypes.length) {
+      this.error(
+        `Function expects ${genericType.parameterTypes.length} arguments, got ${node.args.length}`,
+        node as any
+      );
+      return UNKNOWN_TYPE;
+    }
+
+    // Infer type arguments from actual arguments
+    const argTypes = node.args.map(arg => this.checkNode(arg));
+    const result = this.inferTypeArguments(genericType, argTypes);
+    
+    if (!result.success) {
+      // Provide a detailed error message
+      if (result.conflictingVariable) {
+        this.error(
+          `Type mismatch: type parameter '${result.conflictingVariable}' cannot be both ${result.type1?.toString()} and ${result.type2?.toString()}`,
+          node as any
+        );
+      } else {
+        this.error(`Could not infer type arguments for generic function`, node as any);
+      }
+      return UNKNOWN_TYPE;
+    }
+
+    // Instantiate the generic function with the inferred type arguments
+    try {
+      const instantiatedType = genericType.instantiate(result.typeArguments!);
+      
+      // Check argument types against instantiated parameter types
+      for (let i = 0; i < node.args.length; i++) {
+        const argType = argTypes[i];
+        const expectedType = instantiatedType.parameterTypes[i];
+        
+        if (!this.isAssignable(argType, expectedType)) {
+          this.error(
+            `Argument ${i + 1}: expected ${expectedType.toString()}, got ${argType.toString()}`,
+            node.args[i] as any
+          );
+        }
+      }
+      
+      return instantiatedType.returnType;
+    } catch (error) {
+      this.error(`Error instantiating generic function: ${error}`, node as any);
+      return UNKNOWN_TYPE;
+    }
+  }
+
+  private inferTypeArguments(genericType: GenericFunctionType, argTypes: Type[]): { 
+    success: boolean; 
+    typeArguments?: Type[];
+    conflictingVariable?: string;
+    type1?: Type;
+    type2?: Type;
+  } {
+    // Build a map from type variable names to inferred types
+    const typeMap = new Map<string, Type>();
+    
+    // Try to infer type arguments by matching actual argument types with parameter types
+    for (let i = 0; i < argTypes.length; i++) {
+      const argType = argTypes[i];
+      const paramType = genericType.parameterTypes[i];
+      
+      const unifyResult = this.unifyTypes(paramType, argType, typeMap);
+      if (!unifyResult.success) {
+        return {
+          success: false,
+          conflictingVariable: unifyResult.conflictingVariable,
+          type1: unifyResult.type1,
+          type2: unifyResult.type2
+        };
+      }
+    }
+    
+    // Extract type arguments in the order of type parameters
+    const typeArguments: Type[] = [];
+    for (const typeParam of genericType.typeParameters) {
+      const inferredType = typeMap.get(typeParam.name);
+      if (!inferredType) {
+        // Could not infer this type parameter
+        return { success: false };
+      }
+      typeArguments.push(inferredType);
+    }
+    
+    return { success: true, typeArguments };
+  }
+
+  private unifyTypes(pattern: Type, concrete: Type, typeMap: Map<string, Type>): {
+    success: boolean;
+    conflictingVariable?: string;
+    type1?: Type;
+    type2?: Type;
+  } {
+    // If pattern is a type variable, try to bind it
+    if (pattern instanceof TypeVariable) {
+      const existing = typeMap.get(pattern.name);
+      if (existing) {
+        // Type variable already bound, check if it matches
+        if (!existing.equals(concrete)) {
+          return {
+            success: false,
+            conflictingVariable: pattern.name,
+            type1: existing,
+            type2: concrete
+          };
+        }
+        return { success: true };
+      } else {
+        // Bind the type variable
+        typeMap.set(pattern.name, concrete);
+        return { success: true };
+      }
+    }
+    
+    // If pattern is an array type, concrete must also be an array type
+    if (pattern instanceof ArrayType) {
+      if (!(concrete instanceof ArrayType)) {
+        return { success: false };
+      }
+      return this.unifyTypes(pattern.elementType, concrete.elementType, typeMap);
+    }
+    
+    // If pattern is a function type, concrete must also be a function type
+    if (pattern instanceof FunctionType) {
+      if (!(concrete instanceof FunctionType)) {
+        return { success: false };
+      }
+      if (pattern.parameterTypes.length !== concrete.parameterTypes.length) {
+        return { success: false };
+      }
+      for (let i = 0; i < pattern.parameterTypes.length; i++) {
+        const result = this.unifyTypes(pattern.parameterTypes[i], concrete.parameterTypes[i], typeMap);
+        if (!result.success) {
+          return result;
+        }
+      }
+      return this.unifyTypes(pattern.returnType, concrete.returnType, typeMap);
+    }
+    
+    // For other types, they must be equal
+    if (!pattern.equals(concrete)) {
+      return { success: false };
+    }
+    return { success: true };
   }
 
   private checkDelete(node: FunctionCall): Type {

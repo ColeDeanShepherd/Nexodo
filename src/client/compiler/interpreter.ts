@@ -283,6 +283,7 @@ export class Interpreter implements InterpreterInterface {
       case 'DOMNode':
       case 'ObjectLiteral':
       case 'ArrayLiteral':
+      case 'Function':
         return node;
       case 'LambdaExpression':
         return this.evaluateLambdaExpression(node as any);
