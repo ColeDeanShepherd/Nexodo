@@ -114,6 +114,15 @@ export class ArrayAccess extends Expression {
   }
 }
 
+// Grouped expression (for controlling precedence)
+export class GroupedExpression extends Expression {
+  readonly nodeType = 'GroupedExpression';
+  
+  constructor(public expression: Expression) {
+    super();
+  }
+}
+
 // DOM Node for UI elements
 export class DOMNode extends Expression {
   readonly nodeType = 'DOMNode';
@@ -215,6 +224,8 @@ export class ASTBuilder {
         return this.buildMemberAccess(parseNode);
       case ParseNodeType.ArrayAccess:
         return this.buildArrayAccess(parseNode);
+      case ParseNodeType.GroupedExpression:
+        return this.buildGroupedExpression(parseNode);
       default:
         throw new Error(`Unsupported parse node type: ${parseNode.type}`);
     }
@@ -508,6 +519,28 @@ export class ASTBuilder {
     const index = this.build(indexNode) as Expression;
     
     return new ArrayAccess(object, index);
+  }
+
+  private buildGroupedExpression(node: ParseNode): GroupedExpression {
+    // Grouped expression structure: ( expression )
+    // node.children: [LPAREN, expression, RPAREN]
+    
+    // Find the expression child (skip LPAREN and RPAREN tokens)
+    const expressionNode = node.children.find(child => 
+      child.type !== ParseNodeType.Token || 
+      (child.token?.type !== 'LPAREN' as any && child.token?.type !== 'RPAREN' as any)
+    );
+    
+    if (!expressionNode) {
+      throw new Error('GroupedExpression missing expression child');
+    }
+    
+    const expression = this.build(expressionNode);
+    if (!(expression instanceof Expression)) {
+      throw new Error('GroupedExpression child must be an expression');
+    }
+    
+    return new GroupedExpression(expression);
   }
 
   private buildLambdaExpression(node: ParseNode): LambdaExpression {

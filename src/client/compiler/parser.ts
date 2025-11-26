@@ -13,6 +13,7 @@ export enum ParseNodeType {
   Property = 'Property',
   MemberAccess = 'MemberAccess',
   ArrayAccess = 'ArrayAccess',
+  GroupedExpression = 'GroupedExpression',
   Token = 'Token'
 }
 

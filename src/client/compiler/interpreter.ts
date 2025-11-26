@@ -13,6 +13,7 @@ import {
   FunctionCall,
   MemberAccess,
   ArrayAccess,
+  GroupedExpression,
   Program,
   Function,
   Parameter,
@@ -291,6 +292,8 @@ export class Interpreter implements InterpreterInterface {
         return this.evaluateMemberAccess(node as MemberAccess);
       case 'ArrayAccess':
         return this.evaluateArrayAccess(node as ArrayAccess);
+      case 'GroupedExpression':
+        return this.evaluateGroupedExpression(node as any);
       case 'BuiltInCodeNode':
         return (node as BuiltInCodeNode).fn();
       default:
@@ -505,6 +508,11 @@ export class Interpreter implements InterpreterInterface {
 
   private evaluateIdentifier(node: Identifier): Expression {
     return this.environment.get(node.name, this);
+  }
+
+  private evaluateGroupedExpression(node: GroupedExpression): Expression {
+    // Simply evaluate the inner expression
+    return this.evaluateNode(node.expression);
   }
 
   private evaluateLambdaExpression(node: LambdaExpression): Expression {
@@ -881,6 +889,11 @@ export class Interpreter implements InterpreterInterface {
         return `${object}[${index}]`;
       }
       
+      case 'GroupedExpression': {
+        const node = expr as GroupedExpression;
+        return `(${this.expressionToCode(node.expression)})`;
+      }
+      
       default:
         return `[Unknown: ${expr.nodeType}]`;
     }
@@ -1247,6 +1260,11 @@ export function expressionToCode(expr: Expression): string {
       const object = expressionToCode(node.object);
       const index = expressionToCode(node.index);
       return `${object}[${index}]`;
+    }
+    
+    case 'GroupedExpression': {
+      const node = expr as GroupedExpression;
+      return `(${expressionToCode(node.expression)})`;
     }
     
     case 'DOMNode': {

@@ -30,7 +30,16 @@ export function createReplGrammar(): Record<string, GrammarRule> {
     new Terminal(TokenType.IDENTIFIER, ParseNodeType.Identifier),
     new NonTerminal('lambda'),
     new NonTerminal('object'),
-    new NonTerminal('array')
+    new NonTerminal('array'),
+    new NonTerminal('grouped_expression')
+  );
+
+  // Grouped expression: ( expression )
+  grammar['grouped_expression'] = new Sequence(
+    ParseNodeType.GroupedExpression,
+    new Terminal(TokenType.LPAREN),
+    new NonTerminal('expression'),
+    new Terminal(TokenType.RPAREN)
   );
 
   // Define operators for the Pratt parser

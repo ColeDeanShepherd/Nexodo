@@ -13,6 +13,7 @@ import {
   FunctionCall,
   MemberAccess,
   ArrayAccess,
+  GroupedExpression,
   Program,
   LambdaExpression,
   Parameter
@@ -91,6 +92,8 @@ export class TypeChecker {
         return this.checkMemberAccess(node as MemberAccess);
       case 'ArrayAccess':
         return this.checkArrayAccess(node as ArrayAccess);
+      case 'GroupedExpression':
+        return this.checkGroupedExpression(node as any);
       case 'LambdaExpression':
         return this.checkLambdaExpression(node as any);
       default:
@@ -174,6 +177,11 @@ export class TypeChecker {
       return UNKNOWN_TYPE;
     }
     return type;
+  }
+
+  private checkGroupedExpression(node: GroupedExpression): Type {
+    // Simply infer the type of the inner expression
+    return this.checkNode(node.expression);
   }
 
   private checkObjectLiteral(node: ObjectLiteral): Type {
