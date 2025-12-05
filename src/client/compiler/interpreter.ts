@@ -239,6 +239,25 @@ export class Interpreter implements InterpreterInterface {
     const uiDivFunc = this.createUIElementFunction('div', 'uiDiv');
     env.define('uiDiv', uiDivFunc, undefined, new FunctionType([new ArrayType(DOM_NODE_TYPE)], DOM_NODE_TYPE));
     
+    // Table-related UI functions
+    const uiTableFunc = this.createUIElementFunction('table', 'uiTable');
+    env.define('uiTable', uiTableFunc, undefined, new FunctionType([new ArrayType(DOM_NODE_TYPE)], DOM_NODE_TYPE));
+    
+    const uiTHeadFunc = this.createUIElementFunction('thead', 'uiTHead');
+    env.define('uiTHead', uiTHeadFunc, undefined, new FunctionType([new ArrayType(DOM_NODE_TYPE)], DOM_NODE_TYPE));
+    
+    const uiTBodyFunc = this.createUIElementFunction('tbody', 'uiTBody');
+    env.define('uiTBody', uiTBodyFunc, undefined, new FunctionType([new ArrayType(DOM_NODE_TYPE)], DOM_NODE_TYPE));
+    
+    const uiThFunc = this.createUIElementFunction('th', 'uiTh');
+    env.define('uiTh', uiThFunc, undefined, new FunctionType([new ArrayType(DOM_NODE_TYPE)], DOM_NODE_TYPE));
+    
+    const uiTrFunc = this.createUIElementFunction('tr', 'uiTr');
+    env.define('uiTr', uiTrFunc, undefined, new FunctionType([new ArrayType(DOM_NODE_TYPE)], DOM_NODE_TYPE));
+    
+    const uiTdFunc = this.createUIElementFunction('td', 'uiTd');
+    env.define('uiTd', uiTdFunc, undefined, new FunctionType([new ArrayType(DOM_NODE_TYPE)], DOM_NODE_TYPE));
+    
     // Built-in delete function (special - argument not evaluated)
     env.define('delete', '__DELETE_BUILTIN__' as any, undefined, new FunctionType([UNKNOWN_TYPE], NULL_TYPE));
     
