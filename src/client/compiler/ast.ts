@@ -560,19 +560,21 @@ export class ASTBuilder {
     const parameters: Parameter[] = [];
     if (paramListNode.children && paramListNode.children.length > 0) {
       for (const paramChild of paramListNode.children) {
-        if (paramChild.type === ParseNodeType.Token && paramChild.children) {
-          // This is a parameter node: identifier : type_annotation
+        if (paramChild.type === ParseNodeType.Token && paramChild.children && paramChild.children.length >= 3) {
+          // This is a parameter node with type: identifier : type_annotation
           const paramChildren = paramChild.children;
-          if (paramChildren.length >= 3) {
-            const nameNode = paramChildren[0];
-            const typeNode = paramChildren[2];
-            
-            if (nameNode.token && nameNode.type === ParseNodeType.Identifier) {
-              const paramName = nameNode.token.value;
-              const paramType = this.parseTypeAnnotation(typeNode);
-              parameters.push(new Parameter(paramName, paramType));
-            }
+          const nameNode = paramChildren[0];
+          const typeNode = paramChildren[2];
+          
+          if (nameNode.token && nameNode.type === ParseNodeType.Identifier) {
+            const paramName = nameNode.token.value;
+            const paramType = this.parseTypeAnnotation(typeNode);
+            parameters.push(new Parameter(paramName, paramType));
           }
+        } else if (paramChild.type === ParseNodeType.Identifier && paramChild.token) {
+          // This is a parameter node without type: just identifier
+          const paramName = paramChild.token.value;
+          parameters.push(new Parameter(paramName)); // No type annotation, will be inferred
         }
       }
     }

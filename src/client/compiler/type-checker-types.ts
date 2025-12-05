@@ -209,6 +209,182 @@ export class GenericFunctionType extends Type {
   }
 }
 
+// Type constraint for unification
+export class TypeConstraint {
+  constructor(
+    public readonly left: Type,
+    public readonly right: Type,
+    public readonly description: string = ""
+  ) {}
+
+  toString(): string {
+    return `${this.left.toString()} ~ ${this.right.toString()}${this.description ? ` (${this.description})` : ''}`;
+  }
+}
+
+// Type substitution map for unification
+export type TypeSubstitution = Map<string, Type>;
+
+// Fresh type variable generator
+export class TypeVariableGenerator {
+  private counter = 0;
+
+  fresh(prefix: string = 'T'): TypeVariable {
+    return new TypeVariable(`${prefix}${this.counter++}`);
+  }
+
+  reset(): void {
+    this.counter = 0;
+  }
+}
+
+// Unification algorithm
+export class Unifier {
+  static unify(constraints: TypeConstraint[]): TypeSubstitution | null {
+    const substitution: TypeSubstitution = new Map();
+
+    for (const constraint of constraints) {
+      const left = Unifier.applySubstitution(constraint.left, substitution);
+      const right = Unifier.applySubstitution(constraint.right, substitution);
+
+      const result = Unifier.unifyTypes(left, right);
+      if (!result) {
+        return null; // Unification failed
+      }
+
+      // Merge the new substitution
+      for (const [varName, type] of result) {
+        const substitutedType = Unifier.applySubstitution(type, substitution);
+        substitution.set(varName, substitutedType);
+      }
+
+      // Apply new substitutions to existing ones
+      for (const [existingVar, existingType] of substitution) {
+        substitution.set(existingVar, Unifier.applySubstitution(existingType, result));
+      }
+    }
+
+    return substitution;
+  }
+
+  private static unifyTypes(type1: Type, type2: Type): TypeSubstitution | null {
+    const substitution: TypeSubstitution = new Map();
+
+    // If types are identical, no substitution needed
+    if (type1.equals(type2)) {
+      return substitution;
+    }
+
+    // If either is a type variable, bind it
+    if (type1 instanceof TypeVariable) {
+      if (Unifier.occursCheck(type1.name, type2)) {
+        return null; // Infinite type
+      }
+      substitution.set(type1.name, type2);
+      return substitution;
+    }
+
+    if (type2 instanceof TypeVariable) {
+      if (Unifier.occursCheck(type2.name, type1)) {
+        return null; // Infinite type
+      }
+      substitution.set(type2.name, type1);
+      return substitution;
+    }
+
+    // Unify array types
+    if (type1 instanceof ArrayType && type2 instanceof ArrayType) {
+      return Unifier.unifyTypes(type1.elementType, type2.elementType);
+    }
+
+    // Unify function types
+    if (type1 instanceof FunctionType && type2 instanceof FunctionType) {
+      if (type1.parameterTypes.length !== type2.parameterTypes.length) {
+        return null; // Different arity
+      }
+
+      const constraints: TypeConstraint[] = [];
+      
+      // Unify parameter types
+      for (let i = 0; i < type1.parameterTypes.length; i++) {
+        constraints.push(new TypeConstraint(type1.parameterTypes[i], type2.parameterTypes[i]));
+      }
+      
+      // Unify return types
+      constraints.push(new TypeConstraint(type1.returnType, type2.returnType));
+
+      return Unifier.unify(constraints);
+    }
+
+    // Unify object types
+    if (type1 instanceof ObjectType && type2 instanceof ObjectType) {
+      const constraints: TypeConstraint[] = [];
+      
+      // For structural compatibility, we need all properties of both types to match
+      const allProps = new Set([...type1.properties.keys(), ...type2.properties.keys()]);
+      
+      for (const propName of allProps) {
+        const prop1 = type1.properties.get(propName);
+        const prop2 = type2.properties.get(propName);
+        
+        if (prop1 && prop2) {
+          // Both have the property, unify their types
+          constraints.push(new TypeConstraint(prop1, prop2));
+        } else if (prop1 || prop2) {
+          // Only one has the property - this is fine for structural subtyping
+          // The type variable will be unified with the object that has more properties
+          continue;
+        }
+      }
+      
+      return Unifier.unify(constraints);
+    }
+
+    // Types cannot be unified
+    return null;
+  }
+
+  private static occursCheck(varName: string, type: Type): boolean {
+    if (type instanceof TypeVariable) {
+      return type.name === varName;
+    }
+    if (type instanceof ArrayType) {
+      return Unifier.occursCheck(varName, type.elementType);
+    }
+    if (type instanceof FunctionType) {
+      return type.parameterTypes.some(t => Unifier.occursCheck(varName, t)) ||
+             Unifier.occursCheck(varName, type.returnType);
+    }
+    if (type instanceof ObjectType) {
+      return Array.from(type.properties.values()).some(t => Unifier.occursCheck(varName, t));
+    }
+    return false;
+  }
+
+  static applySubstitution(type: Type, substitution: TypeSubstitution): Type {
+    if (type instanceof TypeVariable) {
+      const substituted = substitution.get(type.name);
+      return substituted ? Unifier.applySubstitution(substituted, substitution) : type;
+    }
+    if (type instanceof ArrayType) {
+      return new ArrayType(Unifier.applySubstitution(type.elementType, substitution));
+    }
+    if (type instanceof FunctionType) {
+      const params = type.parameterTypes.map(t => Unifier.applySubstitution(t, substitution));
+      const returnType = Unifier.applySubstitution(type.returnType, substitution);
+      return new FunctionType(params, returnType);
+    }
+    if (type instanceof ObjectType) {
+      const newProps = new Map<string, Type>();
+      for (const [key, propType] of type.properties) {
+        newProps.set(key, Unifier.applySubstitution(propType, substitution));
+      }
+      return new ObjectType(newProps);
+    }
+    return type;
+  }
+}
+
 // Built-in types
 export const NUMBER_TYPE = new PrimitiveType('number');
 export const STRING_TYPE = new PrimitiveType('string');

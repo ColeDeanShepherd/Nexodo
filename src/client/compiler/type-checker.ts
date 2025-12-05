@@ -28,6 +28,10 @@ import {
   UnknownType, 
   GenericFunctionType,
   TypeVariable,
+  TypeConstraint,
+  TypeSubstitution,
+  TypeVariableGenerator,
+  Unifier,
   NUMBER_TYPE, 
   STRING_TYPE, 
   BOOLEAN_TYPE, 
@@ -51,6 +55,8 @@ export class SemanticError extends Error {
 export class TypeChecker {
   private environment: RuntimeEnvironment;
   private errors: SemanticError[] = [];
+  private typeVarGenerator: TypeVariableGenerator = new TypeVariableGenerator();
+  private constraints: TypeConstraint[] = [];
 
   constructor(globalEnvironment: RuntimeEnvironment) {
     this.environment = globalEnvironment;
@@ -58,7 +64,23 @@ export class TypeChecker {
 
   analyze(node: ASTNode): { type: Type; errors: SemanticError[] } {
     this.errors = [];
+    this.constraints = [];
+    this.typeVarGenerator.reset();
+    
     const type = this.checkNode(node);
+    
+    // Solve constraints through unification
+    if (this.constraints.length > 0) {
+      const substitution = Unifier.unify(this.constraints);
+      if (substitution) {
+        const finalType = Unifier.applySubstitution(type, substitution);
+        return { type: finalType, errors: [...this.errors] };
+      } else {
+        this.error('Type inference failed: unable to unify constraints');
+        return { type, errors: [...this.errors] };
+      }
+    }
+    
     return { type, errors: [...this.errors] };
   }
 
@@ -255,17 +277,17 @@ export class TypeChecker {
       return calleeType.returnType;
     }
     
-    // Check argument types
+    // Check argument types and add constraints for type inference
     for (let i = 0; i < node.args.length; i++) {
       const argType = this.checkNode(node.args[i]);
       const expectedType = calleeType.parameterTypes[i];
       
-      if (!this.isAssignable(argType, expectedType)) {
-        this.error(
-          `Argument ${i + 1}: expected ${expectedType.toString()}, got ${argType.toString()}`,
-          node.args[i] as any
-        );
-      }
+      // Add constraint for unification instead of checking assignability directly
+      this.constraints.push(new TypeConstraint(
+        argType, 
+        expectedType, 
+        `Function call argument ${i + 1}`
+      ));
     }
     
     return calleeType.returnType;
@@ -281,45 +303,30 @@ export class TypeChecker {
       return UNKNOWN_TYPE;
     }
 
-    // Infer type arguments from actual arguments
-    const argTypes = node.args.map(arg => this.checkNode(arg));
-    const result = this.inferTypeArguments(genericType, argTypes);
+    // For generic functions, create fresh type variables for generic parameters
+    // and add constraints instead of trying to immediately infer
+    const freshTypeArgs = genericType.typeParameters.map(tv => 
+      this.typeVarGenerator.fresh(tv.name.replace('T', 'G'))
+    );
     
-    if (!result.success) {
-      // Provide a detailed error message
-      if (result.conflictingVariable) {
-        this.error(
-          `Type mismatch: type parameter '${result.conflictingVariable}' cannot be both ${result.type1?.toString()} and ${result.type2?.toString()}`,
-          node as any
-        );
-      } else {
-        this.error(`Could not infer type arguments for generic function`, node as any);
-      }
-      return UNKNOWN_TYPE;
-    }
-
-    // Instantiate the generic function with the inferred type arguments
-    try {
-      const instantiatedType = genericType.instantiate(result.typeArguments!);
+    // Instantiate with fresh type variables
+    const instantiatedType = genericType.instantiate(freshTypeArgs);
+    
+    // Check argument types and add constraints
+    const argTypes = node.args.map(arg => this.checkNode(arg));
+    for (let i = 0; i < node.args.length; i++) {
+      const argType = argTypes[i];
+      const expectedType = instantiatedType.parameterTypes[i];
       
-      // Check argument types against instantiated parameter types
-      for (let i = 0; i < node.args.length; i++) {
-        const argType = argTypes[i];
-        const expectedType = instantiatedType.parameterTypes[i];
-        
-        if (!this.isAssignable(argType, expectedType)) {
-          this.error(
-            `Argument ${i + 1}: expected ${expectedType.toString()}, got ${argType.toString()}`,
-            node.args[i] as any
-          );
-        }
-      }
-      
-      return instantiatedType.returnType;
-    } catch (error) {
-      this.error(`Error instantiating generic function: ${error}`, node as any);
-      return UNKNOWN_TYPE;
+      // Add constraint for unification instead of checking assignability directly
+      this.constraints.push(new TypeConstraint(
+        argType, 
+        expectedType, 
+        `Generic function call argument ${i + 1}`
+      ));
     }
+    
+    return instantiatedType.returnType;
   }
 
   private inferTypeArguments(genericType: GenericFunctionType, argTypes: Type[]): { 
@@ -483,6 +490,24 @@ export class TypeChecker {
       return UNKNOWN_TYPE;
     }
     
+    // Handle type variables - create constraint for object with property
+    if (objectType instanceof TypeVariable) {
+      // Generate a fresh type variable for the property type
+      const propertyType = this.typeVarGenerator.fresh('Prop');
+      
+      // Create an object type with the required property
+      const requiredObjectType = new ObjectType(new Map([[node.property.name, propertyType]]));
+      
+      // Add constraint that the object must be at least this object type
+      this.constraints.push(new TypeConstraint(
+        objectType,
+        requiredObjectType,
+        `Property access: ${node.property.name}`
+      ));
+      
+      return propertyType;
+    }
+    
     if (!(objectType instanceof ObjectType)) {
       this.error(`Cannot access property of non-object type: ${objectType.toString()}`, node as any);
       return UNKNOWN_TYPE;
@@ -526,7 +551,14 @@ export class TypeChecker {
     // Add parameters to the lambda's environment
     const paramTypes: Type[] = [];
     for (const param of node.parameters) {
-      const paramType = param.type ?? UNKNOWN_TYPE;
+      let paramType: Type;
+      if (param.type) {
+        // Explicit type annotation
+        paramType = param.type;
+      } else {
+        // Generate a fresh type variable for inference
+        paramType = this.typeVarGenerator.fresh('P'); // Parameter type variable
+      }
       paramTypes.push(paramType);
       // Define the parameter in the lambda's environment
       lambdaEnv.defineType(param.name, paramType, node);

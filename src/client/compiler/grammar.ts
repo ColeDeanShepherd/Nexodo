@@ -214,12 +214,17 @@ export function createReplGrammar(): Record<string, GrammarRule> {
     false // don't allow trailing comma
   );
 
-  // Lambda parameter: name: type
-  grammar['lambda_parameter'] = new Sequence(
-    ParseNodeType.Token, // Individual parameter
-    new Terminal(TokenType.IDENTIFIER, ParseNodeType.Identifier),
-    new Terminal(TokenType.COLON),
-    new NonTerminal('type_annotation')
+  // Lambda parameter: name: type OR just name (for type inference)
+  grammar['lambda_parameter'] = new Choice(
+    // Parameter with explicit type: name: type
+    new Sequence(
+      ParseNodeType.Token, // Individual parameter
+      new Terminal(TokenType.IDENTIFIER, ParseNodeType.Identifier),
+      new Terminal(TokenType.COLON),
+      new NonTerminal('type_annotation')
+    ),
+    // Parameter without type (to be inferred): name
+    new Terminal(TokenType.IDENTIFIER, ParseNodeType.Identifier)
   );
 
   // Type annotation: number | string | boolean | null | identifier[] | identifier
