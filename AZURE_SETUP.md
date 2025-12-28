@@ -80,7 +80,7 @@ Go to your GitHub repository settings and add the following secrets:
    - Value: The entire JSON output from the service principal creation
 
 2. **AZURE_CONTAINER_REGISTRY**
-   - Value: `nexodoacr.azurecr.io` (your registry login server - will be created by Bicep)
+   - Value: `nexodoacr.azurecr.io` (your registry login server - will be created by Pulumi)
 
 3. **AZURE_CONTAINER_REGISTRY_NAME**
    - Value: `nexodoacr` (just the name, without .azurecr.io)
