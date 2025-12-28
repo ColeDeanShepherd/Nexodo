@@ -17,19 +17,20 @@ const jwtSecret = config.requireSecret("jwtSecret");
 const databaseUrl = config.requireSecret("databaseUrl");
 
 // Get resource names
-const resourceGroupName = config.require("resourceGroupName");
+const resourceGroupName = config.get("resourceGroupName") || "nexodo-rg";
 const containerRegistryName = config.require("containerRegistryName");
 const environmentName = config.require("environmentName");
 const containerAppName = config.require("containerAppName");
 
-// Reference existing resource group
-const resourceGroup = azure.resources.ResourceGroup.get("resourceGroup", 
-    pulumi.interpolate`/subscriptions/${azure.authorization.getClientConfig().then(c => c.subscriptionId)}/resourceGroups/${resourceGroupName}`
-);
+// Create Resource Group
+const resourceGroup = new azure.resources.ResourceGroup("resourceGroup", {
+    resourceGroupName: resourceGroupName,
+    location: location,
+});
 
 // Create Container Registry
 const registry = new azure.containerregistry.Registry("registry", {
-    resourceGroupName: resourceGroupName,
+    resourceGroupName: resourceGroup.name,
     registryName: containerRegistryName,
     location: location,
     sku: {
@@ -39,7 +40,7 @@ const registry = new azure.containerregistry.Registry("registry", {
 });
 
 // Get registry credentials
-const credentials = pulumi.all([resourceGroupName, registry.name]).apply(([rgName, regName]) =>
+const credentials = pulumi.all([resourceGroup.name, registry.name]).apply(([rgName, regName]) =>
     azure.containerregistry.listRegistryCredentials({
         resourceGroupName: rgName,
         registryName: regName,
@@ -51,7 +52,7 @@ const registryPassword = credentials.apply(c => c.passwords![0].value!);
 
 // Create Log Analytics Workspace
 const workspace = new azure.operationalinsights.Workspace("workspace", {
-    resourceGroupName: resourceGroupName,
+    resourceGroupName: resourceGroup.name,
     workspaceName: `${environmentName}-logs`,
     location: location,
     sku: {
@@ -61,7 +62,7 @@ const workspace = new azure.operationalinsights.Workspace("workspace", {
 });
 
 // Get workspace keys
-const workspaceSharedKeys = pulumi.all([resourceGroupName, workspace.name]).apply(([rgName, wsName]) =>
+const workspaceSharedKeys = pulumi.all([resourceGroup.name, workspace.name]).apply(([rgName, wsName]) =>
     azure.operationalinsights.getSharedKeys({
         resourceGroupName: rgName,
         workspaceName: wsName,
@@ -70,7 +71,7 @@ const workspaceSharedKeys = pulumi.all([resourceGroupName, workspace.name]).appl
 
 // Create Container Apps Environment
 const environment = new azure.app.ManagedEnvironment("environment", {
-    resourceGroupName: resourceGroupName,
+    resourceGroupName: resourceGroup.name,
     environmentName: environmentName,
     location: location,
     appLogsConfiguration: {
@@ -84,7 +85,7 @@ const environment = new azure.app.ManagedEnvironment("environment", {
 
 // Create Container App
 const containerApp = new azure.app.ContainerApp("containerApp", {
-    resourceGroupName: resourceGroupName,
+    resourceGroupName: resourceGroup.name,
     containerAppName: containerAppName,
     location: location,
     managedEnvironmentId: environment.id,

@@ -5,57 +5,135 @@ This guide will help you set up automatic deployment to Azure Container Apps for
 ## Prerequisites
 
 - Azure subscription
-- Azure CLI installed (`az` command)
 - GitHub repository with admin access
-- Pulumi account (free at [pulumi.com](https://pulumi.com))
-- Node.js 18+ installed (for local development)
+- **Azure CLI** - Only needed if:
+  - Using Azure Blob Storage backend (Option B), OR
+  - Deploying locally (optional)
+- **Node.js 18+** - Only for local development (optional)
 
-## Deployment Options
+## Backend Options
+
+Pulumi needs a backend to store infrastructure state. You have two options:
+
+**Option A: Pulumi Cloud (Recommended - Easiest)**
+- Free for individuals
+- Managed state storage
+- Built-in secrets encryption
+- Web UI for viewing deployments
+
+**Option B: Azure Blob Storage (No Pulumi account needed)**
+- Use your existing Azure subscription
+- No external dependencies
+- Self-managed state storage
+
+This guide covers both options below.
+
+## What Gets Deployed
 
 This setup uses **Pulumi with TypeScript** for Infrastructure as Code (IaC), which automatically provisions and manages:
+- Resource Group
 - Container Registry
 - Container Apps Environment (with Log Analytics)
 - Container App with auto-scaling and health checks
 
-## Step 1: Create Resource Group
+**Everything is automated via GitHub Actions** - no manual Azure CLI commands needed!
 
-### 1.1 Log in to Azure
+## Step 1: Choose Your Backend
+
+### Option A: Pulumi Cloud (Recommended)
+
+#### 1.1 Create a Pulumi account
+1. Go to [app.pulumi.com](https://app.pulumi.com)
+2. Sign up or log in (free for individuals)
+3. Create a new access token: Settings → Access Tokens → Create token
+4. Save the token - you'll add it to GitHub secrets as `PULUMI_ACCESS_TOKEN`
+
+#### 1.2 GitHub Secrets for Pulumi Cloud
+You'll need to add:
+- `PULUMI_ACCESS_TOKEN` - Your Pulumi access token
+- `PULUMI_CONFIG_PASSPHRASE` - Any secure string for encrypting secrets
+
+### Option B: Azure Blob Storage Backend (No Pulumi Account)
+
+**Important:** This option requires Azure CLI access. Follow "Step 2: Local Azure Setup" first if choosing this option.
+
+#### 1.1 Create a storage account for Pulumi state
+
+**Note:** Pulumi state must be in a separate resource group from the infrastructure it manages. This avoids circular dependencies.
+
+```bash
+# Create a separate resource group for Pulumi state
+az group create \
+  --name nexodo-pulumi-state \
+  --location eastus
+
+# Create storage account for Pulumi state
+az storage account create \
+  --name nexodopulumistate \
+  --resource-group nexodo-pulumi-state \
+  --location eastus \
+  --sku Standard_LRS
+
+# Create container
+az storage container create \
+  --name pulumi-state \
+  --account-name nexodopulumistate
+```
+
+#### 1.2 Update GitHub workflow
+Add to the workflow file before the Pulumi action:
+```yaml
+- name: Configure Pulumi backend
+  run: pulumi login azblob://pulumi-state
+  env:
+    AZURE_STORAGE_ACCOUNT: nexodopulumistate
+```
+
+#### 1.3 GitHub Secrets for Azure Backend
+You'll only need:
+- `PULUMI_CONFIG_PASSPHRASE` - Any secure string for encrypting secrets
+- Azure credentials (already configured in `AZURE_CREDENTIALS`)
+
+**No `PULUMI_ACCESS_TOKEN` needed!**
+
+## Step 2: Local Azure Setup (Optional - Only for Local Development)
+
+**Skip this step if you're only deploying via GitHub Actions!**
+
+The GitHub Actions workflow handles Azure authentication automatically using the service principal. You only need to do this if you want to deploy from your local machine.
+
+### 2.1 Log in to Azure
 ```bash
 az login
 ```
 
-### 1.2 Set your subscription (if you have multiple)
+### 2.2 Set your subscription (if you have multiple)
 ```bash
 az account set --subscription "YOUR_SUBSCRIPTION_ID"
 ```
 
-### 1.3 Create a Resource Group
-```bash
-az group create \
-  --name nexodo-rg \
-  --location eastus
-```
+## Step 3: Initialize Pulumi (Optional - Local Development Only)
 
-**Note:** All other resources will be created automatically via Pulumi during deployment.
+If you want to deploy locally:
 
-## Step 2: Set Up Pulumi
-
-### 2.1 Create a Pulumi account
-1. Go to [app.pulumi.com](https://app.pulumi.com)
-2. Sign up or log in (free for individuals)
-3. Create a new access token: Settings → Access Tokens → Create token
-4. Save the token for later
-
-### 2.2 Initialize Pulumi stack (optional - for local development)
+### For Pulumi Cloud:
 ```bash
 cd infra
 npm install
 pulumi login
 pulumi stack init prod
-pulumi config set azure-native:location eastus
 ```
 
-## Step 3: Create Azure Service Principal
+### For Azure Blob Storage:
+```bash
+cd infra
+npm install
+export AZURE_STORAGE_ACCOUNT=nexodopulumistate
+pulumi login azblob://pulumi-state
+pulumi stack init prod
+```
+
+## Step 4: Create Azure Service Principal
 
 Create a service principal for GitHub Actions:
 
@@ -63,13 +141,15 @@ Create a service principal for GitHub Actions:
 az ad sp create-for-rbac \
   --name "nexodo-github-actions" \
   --role contributor \
-  --scopes /subscriptions/{SUBSCRIPTION_ID}/resourceGroups/nexodo-rg \
+  --scopes /subscriptions/{SUBSCRIPTION_ID} \
   --sdk-auth
 ```
 
+**Note:** We use subscription-level scope so the service principal can create the `nexodo-rg` resource group. If using Azure Blob Storage backend, ensure it also has access to the `nexodo-pulumi-state` resource group.
+
 This will output JSON credentials. Save the entire JSON output for the next step.
 
-## Step 4: Configure GitHub Secrets
+## Step 5: Configure GitHub Secrets
 
 Go to your GitHub repository settings and add the following secrets:
 **Settings → Secrets and variables → Actions → New repository secret**
@@ -100,11 +180,24 @@ Go to your GitHub repository settings and add the following secrets:
 8. **AZURE_CONTAINER_APP_ENVIRONMENT**
    - Value: `nexodo-env`
 
+### Backend-Specific Secrets:
+
+**If using Pulumi Cloud (Option A):**
+
 9. **PULUMI_ACCESS_TOKEN**
    - Value: Your Pulumi access token from app.pulumi.com
 
 10. **PULUMI_CONFIG_PASSPHRASE**
-   - Value: A secure passphrase for encrypting Pulumi secrets (any string you choose)
+   - Value: A secure passphrase for encrypting Pulumi secrets
+
+**If using Azure Blob Storage (Option B):**
+
+9. **PULUMI_CONFIG_PASSPHRASE**
+   - Value: A secure passphrase for encrypting Pulumi secrets
+   - Note: No PULUMI_ACCESS_TOKEN needed!
+
+10. **AZURE_STORAGE_ACCOUNT** (if using Azure backend)
+   - Value: `nexodopulumistate`
 
 ### Application Secrets (adjust based on your app):
 
@@ -116,7 +209,7 @@ Go to your GitHub repository settings and add the following secrets:
 
 **Note:** After the first deployment, you can get the actual Container App URL from the workflow output or Azure Portal to update `GOOGLE_REDIRECT_URI`.
 
-## Step 5: Deploy via GitHub Actions
+## Step 6: Deploy via GitHub Actions
 
 1. Push a commit to the `main` branch
 2. Go to the **Actions** tab in your GitHub repository
@@ -125,7 +218,7 @@ Go to your GitHub repository settings and add the following secrets:
    - **build-and-deploy** job: Builds and deploys your Docker container
 4. Once complete, the infrastructure and app will be live
 
-## Step 6: Get Registry Credentials (First Deployment Only)
+## Step 7: Get Registry Credentials (First Deployment Only)
 
 After the first successful deployment, get the ACR credentials to update GitHub secrets:
 
