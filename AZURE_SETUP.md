@@ -6,10 +6,7 @@ This guide will help you set up automatic deployment to Azure Container Apps for
 
 - Azure subscription
 - GitHub repository with admin access
-- **Azure CLI** - Only needed for:
-  - Initial setup of Pulumi state storage (one-time)
-  - Local development (optional)
-- **Node.js 18+** - Only for local development (optional)
+- **Azure CLI** - Only needed for initial setup of Pulumi state storage (one-time)
 
 ## What Gets Deployed
 
@@ -35,13 +32,13 @@ az account set --subscription "YOUR_SUBSCRIPTION_ID"
 # Create a separate resource group for Pulumi state
 az group create \
   --name nexodo-pulumi-state \
-  --location eastus
+  --location westus
 
 # Create storage account for Pulumi state
 az storage account create \
   --name nexodopulumistate \
   --resource-group nexodo-pulumi-state \
-  --location eastus \
+  --location westus \
   --sku Standard_LRS
 
 # Create container
@@ -50,35 +47,7 @@ az storage container create \
   --account-name nexodopulumistate
 ```
 
-## Step 2: Local Azure Setup (Optional - Only for Local Development)
-
-**Skip this step if you're only deploying via GitHub Actions!**
-
-The GitHub Actions workflow handles Azure authentication automatically using the service principal. You only need to do this if you want to deploy from your local machine.
-
-### 2.1 Log in to Azure
-```bash
-az login
-```
-
-### 2.2 Set your subscription (if you have multiple)
-```bash
-az account set --subscription "YOUR_SUBSCRIPTION_ID"
-```
-
-## Step 3: Initialize Pulumi (Optional - Local Development Only)
-
-If you want to deploy locally:
-
-```bash
-cd infra
-npm install
-export AZURE_STORAGE_ACCOUNT=nexodopulumistate
-pulumi login azblob://pulumi-state
-pulumi stack init prod
-```
-
-## Step 4: Create Azure Service Principal
+## Step 2: Create Azure Service Principal
 
 Create a service principal for GitHub Actions:
 
@@ -94,7 +63,7 @@ az ad sp create-for-rbac \
 
 This will output JSON credentials. Save the entire JSON output for the next step.
 
-## Step 5: Configure GitHub Secrets
+## Step 3: Configure GitHub Secrets
 
 Go to your GitHub repository settings and add the following secrets:
 **Settings → Secrets and variables → Actions → New repository secret**
@@ -135,15 +104,10 @@ Go to your GitHub repository settings and add the following secrets:
 
 ### Application Secrets (adjust based on your app):
 
-11. **GOOGLE_CLIENT_ID** - Your Google OAuth client ID
-12. **GOOGLE_CLIENT_SECRET** - Your Google OAuth client secret
-13. **GOOGLE_REDIRECT_URI** - Your Azure Container App URL + callback path (e.g., `https://nexodo-app.azurecontainerapps.io/auth/callback`)
-14. **JWT_SECRET** - A secure random string for JWT signing
-15. **DATABASE_URL** - Your PostgreSQL database connection string
+11. **JWT_SECRET** - A secure random string for JWT signing
+12. **DATABASE_URL** - Your PostgreSQL database connection string
 
-**Note:** After the first deployment, you can get the actual Container App URL from the workflow output or Azure Portal to update `GOOGLE_REDIRECT_URI`.
-
-## Step 6: Deploy via GitHub Actions
+## Step 4: Deploy via GitHub Actions
 
 1. Push a commit to the `main` branch
 2. Go to the **Actions** tab in your GitHub repository
@@ -152,7 +116,7 @@ Go to your GitHub repository settings and add the following secrets:
    - **build-and-deploy** job: Builds and deploys your Docker container
 4. Once complete, the infrastructure and app will be live
 
-## Step 7: Get Registry Credentials (First Deployment Only)
+## Step 5: Get Registry Credentials (First Deployment Only)
 
 After the first successful deployment, get the ACR credentials to update GitHub secrets:
 
@@ -187,31 +151,6 @@ Edit [infra/index.ts](infra/index.ts) to modify:
 
 Or update [infra/Pulumi.prod.yaml](infra/Pulumi.prod.yaml) for configuration values.
 
-## Manual Pulumi Deployment (Optional)
-
-Deploy infrastructure manually using Pulumi CLI:
-
-```bash
-cd infra
-pulumi login
-pulumi stack select prod
-
-# Set configuration
-pulumi config set nexodo-infra:resourceGroupName nexodo-rg
-pulumi config set nexodo-infra:googleClientId "your-client-id"
-pulumi config set --secret nexodo-infra:googleClientSecret "your-secret"
-pulumi config set --secret nexodo-infra:jwtSecret "your-jwt-secret"
-pulumi config set --secret nexodo-infra:databaseUrl "your-db-url"
-pulumi config set nexodo-infra:googleRedirectUri "https://your-app-url/auth/callback"
-
-# Preview changes
-pulumi preview
-
-# Deploy
-pulumi up
-```
-
-## Step 6: Verify Deployment
 ## Step 6: Verify Deployment
 
 Get your app URL:
@@ -228,7 +167,7 @@ Test the health endpoint:
 curl https://YOUR_APP_URL/api/health
 ```
 
-## Step 7: Update Environment Variables (Optional)
+## Updating Environment Variables
 
 To update environment variables after deployment without redeploying infrastructure:
 
