@@ -6,27 +6,10 @@ This guide will help you set up automatic deployment to Azure Container Apps for
 
 - Azure subscription
 - GitHub repository with admin access
-- **Azure CLI** - Only needed if:
-  - Using Azure Blob Storage backend (Option B), OR
-  - Deploying locally (optional)
+- **Azure CLI** - Only needed for:
+  - Initial setup of Pulumi state storage (one-time)
+  - Local development (optional)
 - **Node.js 18+** - Only for local development (optional)
-
-## Backend Options
-
-Pulumi needs a backend to store infrastructure state. You have two options:
-
-**Option A: Pulumi Cloud (Recommended - Easiest)**
-- Free for individuals
-- Managed state storage
-- Built-in secrets encryption
-- Web UI for viewing deployments
-
-**Option B: Azure Blob Storage (No Pulumi account needed)**
-- Use your existing Azure subscription
-- No external dependencies
-- Self-managed state storage
-
-This guide covers both options below.
 
 ## What Gets Deployed
 
@@ -38,30 +21,17 @@ This setup uses **Pulumi with TypeScript** for Infrastructure as Code (IaC), whi
 
 **Everything is automated via GitHub Actions** - no manual Azure CLI commands needed!
 
-## Step 1: Choose Your Backend
+## Step 1: Set Up Pulumi State Storage
 
-### Option A: Pulumi Cloud (Recommended)
-
-#### 1.1 Create a Pulumi account
-1. Go to [app.pulumi.com](https://app.pulumi.com)
-2. Sign up or log in (free for individuals)
-3. Create a new access token: Settings → Access Tokens → Create token
-4. Save the token - you'll add it to GitHub secrets as `PULUMI_ACCESS_TOKEN`
-
-#### 1.2 GitHub Secrets for Pulumi Cloud
-You'll need to add:
-- `PULUMI_ACCESS_TOKEN` - Your Pulumi access token
-- `PULUMI_CONFIG_PASSPHRASE` - Any secure string for encrypting secrets
-
-### Option B: Azure Blob Storage Backend (No Pulumi Account)
-
-**Important:** This option requires Azure CLI access. Follow "Step 2: Local Azure Setup" first if choosing this option.
-
-#### 1.1 Create a storage account for Pulumi state
-
-**Note:** Pulumi state must be in a separate resource group from the infrastructure it manages. This avoids circular dependencies.
+Pulumi uses Azure Blob Storage to store infrastructure state. This must be in a separate resource group from the infrastructure it manages to avoid circular dependencies.
 
 ```bash
+# Log in to Azure
+az login
+
+# Set your subscription (if you have multiple)
+az account set --subscription "YOUR_SUBSCRIPTION_ID"
+
 # Create a separate resource group for Pulumi state
 az group create \
   --name nexodo-pulumi-state \
@@ -79,22 +49,6 @@ az storage container create \
   --name pulumi-state \
   --account-name nexodopulumistate
 ```
-
-#### 1.2 Update GitHub workflow
-Add to the workflow file before the Pulumi action:
-```yaml
-- name: Configure Pulumi backend
-  run: pulumi login azblob://pulumi-state
-  env:
-    AZURE_STORAGE_ACCOUNT: nexodopulumistate
-```
-
-#### 1.3 GitHub Secrets for Azure Backend
-You'll only need:
-- `PULUMI_CONFIG_PASSPHRASE` - Any secure string for encrypting secrets
-- Azure credentials (already configured in `AZURE_CREDENTIALS`)
-
-**No `PULUMI_ACCESS_TOKEN` needed!**
 
 ## Step 2: Local Azure Setup (Optional - Only for Local Development)
 
@@ -116,15 +70,6 @@ az account set --subscription "YOUR_SUBSCRIPTION_ID"
 
 If you want to deploy locally:
 
-### For Pulumi Cloud:
-```bash
-cd infra
-npm install
-pulumi login
-pulumi stack init prod
-```
-
-### For Azure Blob Storage:
 ```bash
 cd infra
 npm install
@@ -145,7 +90,7 @@ az ad sp create-for-rbac \
   --sdk-auth
 ```
 
-**Note:** We use subscription-level scope so the service principal can create the `nexodo-rg` resource group. If using Azure Blob Storage backend, ensure it also has access to the `nexodo-pulumi-state` resource group.
+**Note:** We use subscription-level scope so the service principal can create the `nexodo-rg` resource group and access the `nexodo-pulumi-state` resource group.
 
 This will output JSON credentials. Save the entire JSON output for the next step.
 
@@ -180,23 +125,12 @@ Go to your GitHub repository settings and add the following secrets:
 8. **AZURE_CONTAINER_APP_ENVIRONMENT**
    - Value: `nexodo-env`
 
-### Backend-Specific Secrets:
-
-**If using Pulumi Cloud (Option A):**
-
-9. **PULUMI_ACCESS_TOKEN**
-   - Value: Your Pulumi access token from app.pulumi.com
-
-10. **PULUMI_CONFIG_PASSPHRASE**
-   - Value: A secure passphrase for encrypting Pulumi secrets
-
-**If using Azure Blob Storage (Option B):**
+### Pulumi Secrets:
 
 9. **PULUMI_CONFIG_PASSPHRASE**
-   - Value: A secure passphrase for encrypting Pulumi secrets
-   - Note: No PULUMI_ACCESS_TOKEN needed!
+   - Value: A secure passphrase for encrypting Pulumi secrets (any string you choose)
 
-10. **AZURE_STORAGE_ACCOUNT** (if using Azure backend)
+10. **AZURE_STORAGE_ACCOUNT**
    - Value: `nexodopulumistate`
 
 ### Application Secrets (adjust based on your app):
