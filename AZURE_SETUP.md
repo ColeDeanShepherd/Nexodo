@@ -1,16 +1,18 @@
 # Azure Container Apps Deployment Setup
 
-This guide will help you set up automatic deployment to Azure Container Apps for the Nexodo application using Infrastructure as Code (Bicep).
+This guide will help you set up automatic deployment to Azure Container Apps for the Nexodo application using Infrastructure as Code (Pulumi with TypeScript).
 
 ## Prerequisites
 
 - Azure subscription
 - Azure CLI installed (`az` command)
 - GitHub repository with admin access
+- Pulumi account (free at [pulumi.com](https://pulumi.com))
+- Node.js 18+ installed (for local development)
 
 ## Deployment Options
 
-This setup uses **Azure Bicep** for Infrastructure as Code (IaC), which automatically provisions and manages:
+This setup uses **Pulumi with TypeScript** for Infrastructure as Code (IaC), which automatically provisions and manages:
 - Container Registry
 - Container Apps Environment (with Log Analytics)
 - Container App with auto-scaling and health checks
@@ -34,9 +36,26 @@ az group create \
   --location eastus
 ```
 
-**Note:** All other resources will be created automatically via Bicep during deployment.
+**Note:** All other resources will be created automatically via Pulumi during deployment.
 
-## Step 2: Create Azure Service Principal
+## Step 2: Set Up Pulumi
+
+### 2.1 Create a Pulumi account
+1. Go to [app.pulumi.com](https://app.pulumi.com)
+2. Sign up or log in (free for individuals)
+3. Create a new access token: Settings → Access Tokens → Create token
+4. Save the token for later
+
+### 2.2 Initialize Pulumi stack (optional - for local development)
+```bash
+cd infra
+npm install
+pulumi login
+pulumi stack init prod
+pulumi config set azure-native:location eastus
+```
+
+## Step 3: Create Azure Service Principal
 
 Create a service principal for GitHub Actions:
 
@@ -50,7 +69,7 @@ az ad sp create-for-rbac \
 
 This will output JSON credentials. Save the entire JSON output for the next step.
 
-## Step 3: Configure GitHub Secrets
+## Step 4: Configure GitHub Secrets
 
 Go to your GitHub repository settings and add the following secrets:
 **Settings → Secrets and variables → Actions → New repository secret**
@@ -81,26 +100,32 @@ Go to your GitHub repository settings and add the following secrets:
 8. **AZURE_CONTAINER_APP_ENVIRONMENT**
    - Value: `nexodo-env`
 
+9. **PULUMI_ACCESS_TOKEN**
+   - Value: Your Pulumi access token from app.pulumi.com
+
+10. **PULUMI_CONFIG_PASSPHRASE**
+   - Value: A secure passphrase for encrypting Pulumi secrets (any string you choose)
+
 ### Application Secrets (adjust based on your app):
 
-8. **GOOGLE_CLIENT_ID** - Your Google OAuth client ID
-9. **GOOGLE_CLIENT_SECRET** - Your Google OAuth client secret
-10. **GOOGLE_REDIRECT_URI** - Your Azure Container App URL + callback path (e.g., `https://nexodo-app.azurecontainerapps.io/auth/callback`)
-11. **JWT_SECRET** - A secure random string for JWT signing
-12. **DATABASE_URL** - Your PostgreSQL database connection string
+11. **GOOGLE_CLIENT_ID** - Your Google OAuth client ID
+12. **GOOGLE_CLIENT_SECRET** - Your Google OAuth client secret
+13. **GOOGLE_REDIRECT_URI** - Your Azure Container App URL + callback path (e.g., `https://nexodo-app.azurecontainerapps.io/auth/callback`)
+14. **JWT_SECRET** - A secure random string for JWT signing
+15. **DATABASE_URL** - Your PostgreSQL database connection string
 
 **Note:** After the first deployment, you can get the actual Container App URL from the workflow output or Azure Portal to update `GOOGLE_REDIRECT_URI`.
 
-## Step 4: Deploy via GitHub Actions
+## Step 5: Deploy via GitHub Actions
 
 1. Push a commit to the `main` branch
 2. Go to the **Actions** tab in your GitHub repository
 3. Watch the deployment workflow run:
-   - **deploy-infrastructure** job: Creates/updates Azure resources using Bicep
+   - **deploy-infrastructure** job: Creates/updates Azure resources using Pulumi
    - **build-and-deploy** job: Builds and deploys your Docker container
 4. Once complete, the infrastructure and app will be live
 
-## Step 5: Get Registry Credentials (First Deployment Only)
+## Step 6: Get Registry Credentials (First Deployment Only)
 
 After the first successful deployment, get the ACR credentials to update GitHub secrets:
 
@@ -114,41 +139,49 @@ Update these GitHub secrets with the values:
 
 ## Infrastructure as Code Benefits
 
-The Bicep template ([infra/main.bicep](infra/main.bicep)) provides:
+The Pulumi TypeScript program ([infra/index.ts](infra/index.ts)) provides:
 
 - **Version Control**: Infrastructure changes are tracked in Git
 - **Consistency**: Same infrastructure deployed every time
-- **Easy Updates**: Modify parameters in the Bicep file to change resources
+- **Type Safety**: TypeScript provides compile-time checking and IntelliSense
+- **Testable**: Write unit tests for your infrastructure code
 - **Automated**: No manual Azure Portal clicks required
 - **Rollback**: Git history allows reverting infrastructure changes
+- **Real Programming Language**: Full power of TypeScript - loops, functions, packages
 
 ### Customizing Infrastructure
 
-Edit [infra/main.bicep](infra/main.bicep) to modify:
+Edit [infra/index.ts](infra/index.ts) to modify:
 - CPU/Memory allocation
 - Min/max replicas for scaling
 - Health check configurations
 - Environment variables
+- Add new Azure resources
 
-Or update [infra/main.parameters.json](infra/main.parameters.json) for local deployments.
+Or update [infra/Pulumi.prod.yaml](infra/Pulumi.prod.yaml) for configuration values.
 
-## Manual Bicep Deployment (Optional)
+## Manual Pulumi Deployment (Optional)
 
-Deploy infrastructure manually using Azure CLI:
+Deploy infrastructure manually using Pulumi CLI:
 
 ```bash
-az deployment group create \
-  --resource-group nexodo-rg \
-  --template-file infra/main.bicep \
-  --parameters \
-    containerRegistryName=nexodoacr \
-    environmentName=nexodo-env \
-    containerAppName=nexodo-app \
-    googleClientId="your-client-id" \
-    googleClientSecret="your-client-secret" \
-    googleRedirectUri="https://your-app-url/auth/callback" \
-    jwtSecret="your-jwt-secret" \
-    databaseUrl="your-database-url"
+cd infra
+pulumi login
+pulumi stack select prod
+
+# Set configuration
+pulumi config set nexodo-infra:resourceGroupName nexodo-rg
+pulumi config set nexodo-infra:googleClientId "your-client-id"
+pulumi config set --secret nexodo-infra:googleClientSecret "your-secret"
+pulumi config set --secret nexodo-infra:jwtSecret "your-jwt-secret"
+pulumi config set --secret nexodo-infra:databaseUrl "your-db-url"
+pulumi config set nexodo-infra:googleRedirectUri "https://your-app-url/auth/callback"
+
+# Preview changes
+pulumi preview
+
+# Deploy
+pulumi up
 ```
 
 ## Step 6: Verify Deployment
@@ -186,8 +219,8 @@ az containerapp update \
     CUSTOM_VAR=value
 ```
 
-**Option 3: Update Bicep template**
-- Modify environment variables in [infra/main.bicep](infra/main.bicep)
+**Option 3: Update Pulumi program**
+- Modify environment variables in [infra/index.ts](infra/index.ts)
 - Push to main branch to redeploy
 
 ## Monitoring and Logs
@@ -206,15 +239,22 @@ View metrics in Azure Portal:
 
 ## Scaling Configuration
 
-Auto-scaling is configured in the Bicep template. To modify:
+Auto-scaling is configured in the Pulumi program. To modify:
 
-1. Edit [infra/main.bicep](infra/main.bicep):
-   ```bicep
-   param minReplicas int = 1
-   param maxReplicas int = 5
+1. Edit [infra/Pulumi.prod.yaml](infra/Pulumi.prod.yaml):
+   ```yaml
+   config:
+     nexodo-infra:minReplicas: "1"
+     nexodo-infra:maxReplicas: "5"
    ```
 
 2. Push to main branch to apply changes
+
+Or modify the defaults in [infra/index.ts](infra/index.ts):
+```typescript
+const minReplicas = config.getNumber("minReplicas") || 1;
+const maxReplicas = config.getNumber("maxReplicas") || 5;
+```
 
 Or update manually:
 ```bash
@@ -259,16 +299,39 @@ This removes the entire resource group and all contained resources (Container Re
 
 ## Additional Resources
 
-- [Azure Bicep Documentation](https://learn.microsoft.com/azure/azure-resource-manager/bicep/)
+- [Pulumi Documentation](https://www.pulumi.com/docs/)
+- [Pulumi Azure Native Provider](https://www.pulumi.com/registry/packages/azure-native/)
 - [Azure Container Apps Documentation](https://learn.microsoft.com/azure/container-apps/)
 - [GitHub Actions for Azure](https://github.com/Azure/actions)
-- [Azure CLI Reference](https://learn.microsoft.com/cli/azure/)
+- [Pulumi GitHub Actions](https://www.pulumi.com/docs/using-pulumi/continuous-delivery/github-actions/)
 
-## Terraform Alternative (Optional)
+## Why Pulumi + TypeScript?
 
-If you prefer Terraform over Bicep, you can convert the Bicep template or create equivalent Terraform configuration. Terraform offers:
-- Multi-cloud support
-- Larger ecosystem of providers
-- State management features
+**Type Safety**: Get IntelliSense, compile-time errors, and refactoring support
 
-For a Terraform setup, create `.tf` files in an `infra/terraform/` directory and update the GitHub Actions workflow to use Terraform actions instead of `azure/arm-deploy`.
+**Real Code**: Use loops, conditionals, functions, and npm packages - it's just TypeScript
+
+**Testing**: Write unit tests for your infrastructure using standard testing frameworks
+
+**Multi-Cloud**: Same tool works for AWS, GCP, Kubernetes, and 100+ providers
+
+**State Management**: Pulumi handles state automatically in the cloud (or self-hosted)
+
+**Preview Changes**: See exactly what will change before applying
+
+**Rich Ecosystem**: Leverage the entire TypeScript/Node.js ecosystem
+
+### Example: Conditional Resources
+```typescript
+if (config.getBoolean("enableCdn")) {
+  const cdn = new azure.cdn.Profile("cdn", { ... });
+}
+```
+
+### Example: Loops
+```typescript
+const replicas = [1, 2, 3];
+replicas.forEach(i => {
+  new azure.app.ContainerApp(`app-${i}`, { ... });
+});
+```

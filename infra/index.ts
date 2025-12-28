@@ -1,0 +1,208 @@
+import * as pulumi from "@pulumi/pulumi";
+import * as azure from "@pulumi/azure-native";
+
+// Get configuration
+const config = new pulumi.Config();
+const location = config.get("location") || "eastus";
+const minReplicas = config.getNumber("minReplicas") || 1;
+const maxReplicas = config.getNumber("maxReplicas") || 3;
+const cpuCores = config.getNumber("cpuCores") || 0.5;
+const memorySize = config.get("memorySize") || "1.0Gi";
+
+// Get secrets from config
+const googleClientId = config.require("googleClientId");
+const googleClientSecret = config.requireSecret("googleClientSecret");
+const googleRedirectUri = config.require("googleRedirectUri");
+const jwtSecret = config.requireSecret("jwtSecret");
+const databaseUrl = config.requireSecret("databaseUrl");
+
+// Get resource names
+const resourceGroupName = config.require("resourceGroupName");
+const containerRegistryName = config.require("containerRegistryName");
+const environmentName = config.require("environmentName");
+const containerAppName = config.require("containerAppName");
+
+// Reference existing resource group
+const resourceGroup = azure.resources.ResourceGroup.get("resourceGroup", 
+    pulumi.interpolate`/subscriptions/${azure.authorization.getClientConfig().then(c => c.subscriptionId)}/resourceGroups/${resourceGroupName}`
+);
+
+// Create Container Registry
+const registry = new azure.containerregistry.Registry("registry", {
+    resourceGroupName: resourceGroupName,
+    registryName: containerRegistryName,
+    location: location,
+    sku: {
+        name: "Basic",
+    },
+    adminUserEnabled: true,
+});
+
+// Get registry credentials
+const credentials = pulumi.all([resourceGroupName, registry.name]).apply(([rgName, regName]) =>
+    azure.containerregistry.listRegistryCredentials({
+        resourceGroupName: rgName,
+        registryName: regName,
+    })
+);
+
+const registryUsername = credentials.apply(c => c.username!);
+const registryPassword = credentials.apply(c => c.passwords![0].value!);
+
+// Create Log Analytics Workspace
+const workspace = new azure.operationalinsights.Workspace("workspace", {
+    resourceGroupName: resourceGroupName,
+    workspaceName: `${environmentName}-logs`,
+    location: location,
+    sku: {
+        name: "PerGB2018",
+    },
+    retentionInDays: 30,
+});
+
+// Get workspace keys
+const workspaceSharedKeys = pulumi.all([resourceGroupName, workspace.name]).apply(([rgName, wsName]) =>
+    azure.operationalinsights.getSharedKeys({
+        resourceGroupName: rgName,
+        workspaceName: wsName,
+    })
+);
+
+// Create Container Apps Environment
+const environment = new azure.app.ManagedEnvironment("environment", {
+    resourceGroupName: resourceGroupName,
+    environmentName: environmentName,
+    location: location,
+    appLogsConfiguration: {
+        destination: "log-analytics",
+        logAnalyticsConfiguration: {
+            customerId: workspace.customerId,
+            sharedKey: workspaceSharedKeys.apply(k => k.primarySharedKey!),
+        },
+    },
+});
+
+// Create Container App
+const containerApp = new azure.app.ContainerApp("containerApp", {
+    resourceGroupName: resourceGroupName,
+    containerAppName: containerAppName,
+    location: location,
+    managedEnvironmentId: environment.id,
+    configuration: {
+        ingress: {
+            external: true,
+            targetPort: 3000,
+            transport: "auto",
+            allowInsecure: false,
+        },
+        registries: [{
+            server: registry.loginServer,
+            username: registryUsername,
+            passwordSecretRef: "registry-password",
+        }],
+        secrets: [
+            {
+                name: "registry-password",
+                value: registryPassword,
+            },
+            {
+                name: "google-client-secret",
+                value: googleClientSecret,
+            },
+            {
+                name: "jwt-secret",
+                value: jwtSecret,
+            },
+            {
+                name: "database-url",
+                value: databaseUrl,
+            },
+        ],
+    },
+    template: {
+        containers: [{
+            name: "nexodo",
+            image: "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
+            resources: {
+                cpu: cpuCores,
+                memory: memorySize,
+            },
+            env: [
+                {
+                    name: "NODE_ENV",
+                    value: "production",
+                },
+                {
+                    name: "PORT",
+                    value: "3000",
+                },
+                {
+                    name: "GOOGLE_CLIENT_ID",
+                    value: googleClientId,
+                },
+                {
+                    name: "GOOGLE_CLIENT_SECRET",
+                    secretRef: "google-client-secret",
+                },
+                {
+                    name: "GOOGLE_REDIRECT_URI",
+                    value: googleRedirectUri,
+                },
+                {
+                    name: "JWT_SECRET",
+                    secretRef: "jwt-secret",
+                },
+                {
+                    name: "DATABASE_URL",
+                    secretRef: "database-url",
+                },
+            ],
+            probes: [
+                {
+                    type: "Liveness",
+                    httpGet: {
+                        path: "/api/health",
+                        port: 3000,
+                    },
+                    initialDelaySeconds: 30,
+                    periodSeconds: 30,
+                    timeoutSeconds: 10,
+                    failureThreshold: 3,
+                },
+                {
+                    type: "Readiness",
+                    httpGet: {
+                        path: "/api/health",
+                        port: 3000,
+                    },
+                    initialDelaySeconds: 10,
+                    periodSeconds: 10,
+                    timeoutSeconds: 5,
+                    failureThreshold: 3,
+                },
+            ],
+        }],
+        scale: {
+            minReplicas: minReplicas,
+            maxReplicas: maxReplicas,
+            rules: [{
+                name: "http-scaling",
+                http: {
+                    metadata: {
+                        concurrentRequests: "100",
+                    },
+                },
+            }],
+        },
+    },
+});
+
+// Export outputs
+export const containerRegistryLoginServer = registry.loginServer;
+export const containerRegistryName = registry.name;
+export const containerAppFqdn = containerApp.configuration.apply(c => c?.ingress?.fqdn || "");
+export const containerAppUrl = containerApp.configuration.apply(c => 
+    c?.ingress?.fqdn ? `https://${c.ingress.fqdn}` : ""
+);
+export const environmentId = environment.id;
+export const registryUsernamOutput = registryUsername;

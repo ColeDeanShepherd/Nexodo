@@ -1,0 +1,6 @@
+# Pulumi Infrastructure
+node_modules/
+bin/
+*.js
+*.js.map
+!index.ts

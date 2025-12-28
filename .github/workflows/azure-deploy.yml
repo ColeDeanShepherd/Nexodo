@@ -16,35 +16,54 @@ jobs:
   deploy-infrastructure:
     runs-on: ubuntu-latest
     outputs:
-      containerRegistryLoginServer: ${{ steps.bicep-deploy.outputs.containerRegistryLoginServer }}
-      containerAppUrl: ${{ steps.bicep-deploy.outputs.containerAppUrl }}
+      containerRegistryLoginServer: ${{ steps.pulumi.outputs.containerRegistryLoginServer }}
+      containerAppUrl: ${{ steps.pulumi.outputs.containerAppUrl }}
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Pulumi dependencies
+        run: |
+          cd infra
+          npm install
 
       - name: Log in to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy Bicep template
-        id: bicep-deploy
-        uses: azure/arm-deploy@v1
+      - name: Deploy with Pulumi
+        id: pulumi
+        uses: pulumi/actions@v5
         with:
-          scope: resourcegroup
-          resourceGroupName: ${{ env.RESOURCE_GROUP }}
-          template: ./infra/main.bicep
-          parameters: >
-            containerRegistryName=${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}
-            environmentName=${{ env.CONTAINER_APP_ENVIRONMENT }}
-            containerAppName=${{ env.CONTAINER_APP_NAME }}
-            googleClientId=${{ secrets.GOOGLE_CLIENT_ID }}
-            googleClientSecret=${{ secrets.GOOGLE_CLIENT_SECRET }}
-            googleRedirectUri=${{ secrets.GOOGLE_REDIRECT_URI }}
-            jwtSecret=${{ secrets.JWT_SECRET }}
-            databaseUrl=${{ secrets.DATABASE_URL }}
-          failOnStdErr: false
+          command: up
+          stack-name: prod
+          work-dir: ./infra
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_CONFIG: |
+            {
+              "nexodo-infra:resourceGroupName": "${{ env.RESOURCE_GROUP }}",
+              "nexodo-infra:containerRegistryName": "${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}",
+              "nexodo-infra:environmentName": "${{ env.CONTAINER_APP_ENVIRONMENT }}",
+              "nexodo-infra:containerAppName": "${{ env.CONTAINER_APP_NAME }}",
+              "nexodo-infra:googleClientId": "${{ secrets.GOOGLE_CLIENT_ID }}",
+              "nexodo-infra:googleClientSecret": "${{ secrets.GOOGLE_CLIENT_SECRET }}",
+              "nexodo-infra:googleRedirectUri": "${{ secrets.GOOGLE_REDIRECT_URI }}",
+              "nexodo-infra:jwtSecret": "${{ secrets.JWT_SECRET }}",
+              "nexodo-infra:databaseUrl": "${{ secrets.DATABASE_URL }}"
+            }
 
   build-and-deploy:
     runs-on: ubuntu-latest
