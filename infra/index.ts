@@ -121,7 +121,7 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
     template: {
         containers: [{
             name: "nexodo",
-            image: "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest",
+            image: pulumi.interpolate`${registry.loginServer}/nexodo:latest`,
             resources: {
                 cpu: cpuCores,
                 memory: memorySize,
