@@ -6,9 +6,9 @@ import * as jwt from 'jsonwebtoken'
 import { BackupService } from './backup-service'
 import { SchedulerService } from './scheduler-service'
 
-if (process.env.NODE_ENV !== 'production') {
-  console.log(process.env.APP_PASSWORD)
-}
+//if (process.env.NODE_ENV !== 'production') {
+  console.log('PWD: ', process.env.APP_PASSWORD)
+//}
 
 const app = new Hono()
 
