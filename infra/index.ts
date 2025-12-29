@@ -188,6 +188,36 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
     },
 });
 
+// Create Storage Account for Nexodo data (West US)
+const dataStorageAccount = new azure.storage.StorageAccount("dataStorageAccount", {
+    resourceGroupName: resourceGroup.name,
+    accountName: config.require("dataStorageAccountName"),
+    location: "westus",
+    sku: {
+        name: "Standard_LRS",
+    },
+    kind: "StorageV2",
+    allowBlobPublicAccess: false,
+});
+
+// Create "db" container
+const dbContainer = new azure.storage.BlobContainer("dbContainer", {
+    resourceGroupName: resourceGroup.name,
+    accountName: dataStorageAccount.name,
+    containerName: "db",
+    publicAccess: "None",
+});
+
+// Create "db" blob
+const dbBlob = new azure.storage.Blob("dbBlob", {
+    resourceGroupName: resourceGroup.name,
+    accountName: dataStorageAccount.name,
+    containerName: dbContainer.name,
+    blobName: "db",
+    type: "Block",
+    source: new pulumi.asset.StringAsset(""), // Empty blob initially
+});
+
 // Export outputs
 export const containerRegistryLoginServer = registry.loginServer;
 export const containerRegistryNameOutput = registry.name;
@@ -197,3 +227,13 @@ export const containerAppUrl = containerApp.configuration.apply(c =>
 );
 export const environmentId = environment.id;
 export const registryUsernamOutput = registryUsername;
+export const dataStorageAccountName = dataStorageAccount.name;
+export const dataStorageAccountPrimaryKey = pulumi.all([resourceGroup.name, dataStorageAccount.name]).apply(
+    ([rgName, saName]) => 
+        azure.storage.listStorageAccountKeys({
+            resourceGroupName: rgName,
+            accountName: saName,
+        }).then(keys => keys.keys[0].value)
+);
+export const dbContainerName = dbContainer.name;
+export const dbBlobName = dbBlob.name;
