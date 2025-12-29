@@ -83,6 +83,18 @@ const environment = new azure.app.ManagedEnvironment("environment", {
     },
 });
 
+// Create managed certificate for custom domain
+const managedCertificate = new azure.app.ManagedCertificate("managedCertificate", {
+    resourceGroupName: resourceGroup.name,
+    environmentName: environment.name,
+    managedCertificateName: "nexodo-cert",
+    location: location,
+    properties: {
+        subjectName: "nexodo.coledeanshepherd.com",
+        domainControlValidation: "CNAME",
+    },
+});
+
 // Create Container App
 const containerApp = new azure.app.ContainerApp("containerApp", {
     resourceGroupName: resourceGroup.name,
@@ -95,6 +107,11 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
             targetPort: 3000,
             transport: "auto",
             allowInsecure: false,
+            customDomains: [{
+                name: "nexodo.coledeanshepherd.com",
+                certificateId: managedCertificate.id,
+                bindingType: "SniEnabled",
+            }],
         },
         registries: [{
             server: registry.loginServer,
@@ -233,6 +250,7 @@ export const containerAppFqdn = containerApp.configuration.apply(c => c?.ingress
 export const containerAppUrl = containerApp.configuration.apply(c => 
     c?.ingress?.fqdn ? `https://${c.ingress.fqdn}` : ""
 );
+export const customDomainUrl = "https://nexodo.coledeanshepherd.com";
 export const environmentId = environment.id;
 export const registryUsernamOutput = registryUsername;
 export const dataStorageAccountName = dataStorageAccount.name;
