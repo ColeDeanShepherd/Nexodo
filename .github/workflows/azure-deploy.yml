@@ -60,9 +60,6 @@ jobs:
               "nexodo-infra:containerRegistryName": "${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}",
               "nexodo-infra:environmentName": "${{ env.CONTAINER_APP_ENVIRONMENT }}",
               "nexodo-infra:containerAppName": "${{ env.CONTAINER_APP_NAME }}",
-              "nexodo-infra:googleClientId": "${{ secrets.GOOGLE_CLIENT_ID }}",
-              "nexodo-infra:googleClientSecret": "${{ secrets.GOOGLE_CLIENT_SECRET }}",
-              "nexodo-infra:googleRedirectUri": "${{ secrets.GOOGLE_REDIRECT_URI }}",
               "nexodo-infra:jwtSecret": "${{ secrets.JWT_SECRET }}",
               "nexodo-infra:databaseUrl": "${{ secrets.DATABASE_URL }}"
             }
@@ -104,9 +101,6 @@ jobs:
           environmentVariables: |
             NODE_ENV=production
             PORT=3000
-            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-            GOOGLE_REDIRECT_URI=${{ secrets.GOOGLE_REDIRECT_URI }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
 

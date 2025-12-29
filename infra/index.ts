@@ -10,9 +10,6 @@ const cpuCores = config.getNumber("cpuCores") || 0.5;
 const memorySize = config.get("memorySize") || "1.0Gi";
 
 // Get secrets from config
-const googleClientId = config.require("googleClientId");
-const googleClientSecret = config.requireSecret("googleClientSecret");
-const googleRedirectUri = config.require("googleRedirectUri");
 const jwtSecret = config.requireSecret("jwtSecret");
 const databaseUrl = config.requireSecret("databaseUrl");
 
@@ -107,10 +104,6 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
                 value: registryPassword,
             },
             {
-                name: "google-client-secret",
-                value: googleClientSecret,
-            },
-            {
                 name: "jwt-secret",
                 value: jwtSecret,
             },
@@ -136,18 +129,6 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
                 {
                     name: "PORT",
                     value: "3000",
-                },
-                {
-                    name: "GOOGLE_CLIENT_ID",
-                    value: googleClientId,
-                },
-                {
-                    name: "GOOGLE_CLIENT_SECRET",
-                    secretRef: "google-client-secret",
-                },
-                {
-                    name: "GOOGLE_REDIRECT_URI",
-                    value: googleRedirectUri,
                 },
                 {
                     name: "JWT_SECRET",
