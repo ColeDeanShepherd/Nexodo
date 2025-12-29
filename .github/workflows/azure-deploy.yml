@@ -85,14 +85,22 @@ jobs:
         id: acr-creds
         run: |
           REGISTRY_NAME="${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}"
-          REGISTRY_SERVER="${{ needs.deploy-infrastructure.outputs.containerRegistryLoginServer }}"
+          
+          # Get login server from ACR
+          REGISTRY_SERVER=$(az acr show --name $REGISTRY_NAME --resource-group ${{ env.RESOURCE_GROUP }} --query loginServer -o tsv)
+          
+          # Get credentials
           CREDS=$(az acr credential show --name $REGISTRY_NAME --resource-group ${{ env.RESOURCE_GROUP }})
           USERNAME=$(echo $CREDS | jq -r '.username')
           PASSWORD=$(echo $CREDS | jq -r '.passwords[0].value')
+          
           echo "::add-mask::$PASSWORD"
           echo "username=$USERNAME" >> $GITHUB_OUTPUT
           echo "password=$PASSWORD" >> $GITHUB_OUTPUT
           echo "server=$REGISTRY_SERVER" >> $GITHUB_OUTPUT
+          
+          echo "Registry server: $REGISTRY_SERVER"
+          echo "Username: $USERNAME"
 
       - name: Log in to Azure Container Registry
         run: |

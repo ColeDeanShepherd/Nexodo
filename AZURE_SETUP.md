@@ -73,40 +73,31 @@ Go to your GitHub repository settings and add the following secrets:
 1. **AZURE_CREDENTIALS**
    - Value: The entire JSON output from the service principal creation
 
-2. **AZURE_CONTAINER_REGISTRY**
-   - Value: `nexodoacr.azurecr.io` (your registry login server - will be created by Pulumi)
-
-3. **AZURE_CONTAINER_REGISTRY_NAME**
+2. **AZURE_CONTAINER_REGISTRY_NAME**
    - Value: `nexodoacr` (just the name, without .azurecr.io)
 
-4. **REGISTRY_USERNAME**
-   - Value: Will be `nexodoacr` after first deployment (or get from Azure Portal after deployment)
-
-5. **REGISTRY_PASSWORD**
-   - Value: Get from Azure Portal → Container Registry → Access keys after first deployment
-
-6. **AZURE_RESOURCE_GROUP**
+3. **AZURE_RESOURCE_GROUP**
    - Value: `nexodo-rg`
 
-7. **AZURE_CONTAINER_APP_NAME**
+4. **AZURE_CONTAINER_APP_NAME**
    - Value: `nexodo-app`
 
-8. **AZURE_CONTAINER_APP_ENVIRONMENT**
+5. **AZURE_CONTAINER_APP_ENVIRONMENT**
    - Value: `nexodo-env`
 
 ### Pulumi Secrets:
 
-9. **PULUMI_CONFIG_PASSPHRASE**
+6. **PULUMI_CONFIG_PASSPHRASE**
    - Value: A secure passphrase for encrypting Pulumi secrets (any string you choose)
 
-10. **AZURE_STORAGE_ACCOUNT**
+7. **AZURE_STORAGE_ACCOUNT**
    - Value: `nexodopulumistate`
 
 ### Application Secrets (adjust based on your app):
 
-11. **JWT_SECRET** - A secure random string for JWT signing
-12. **DATABASE_URL** - Your PostgreSQL database connection string
-13. **APP_PASSWORD** - The password protecting the app's data.
+8. **JWT_SECRET** - A secure random string for JWT signing
+9. **DATABASE_URL** - Your PostgreSQL database connection string
+10. **APP_PASSWORD** - The password protecting the app's data.
 
 ## Step 4: Deploy via GitHub Actions
 
@@ -152,7 +143,7 @@ Edit [infra/index.ts](infra/index.ts) to modify:
 
 Or update [infra/Pulumi.prod.yaml](infra/Pulumi.prod.yaml) for configuration values.
 
-## Step 6: Verify Deployment
+## Step 5: Verify Deployment
 
 Get your app URL:
 ```bash
