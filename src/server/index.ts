@@ -5,6 +5,8 @@ import { Pool } from 'pg'
 import * as jwt from 'jsonwebtoken'
 import { BackupService } from './backup-service'
 import { SchedulerService } from './scheduler-service'
+import { KeyValueStore } from './key-value-store'
+import { PostgresKeyValueStore } from './postgres-key-value-store'
 
 const app = new Hono()
 
@@ -41,8 +43,11 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 })
 
+// Create key-value store abstraction
+const kvStore: KeyValueStore = new PostgresKeyValueStore(pool)
+
 // Initialize backup services
-const backupService = new BackupService(pool)
+const backupService = new BackupService(kvStore)
 const schedulerService = new SchedulerService(backupService)
 
 // Serve static files from public directory
@@ -81,21 +86,13 @@ app.post('/api/auth/login', async (c) => {
 // Protected: GET endpoint to load the value with key "db" from key_value_store table
 app.get('/api/db/value', authenticateJWT, async (c) => {
   try {
-    const client = await pool.connect()
-    try {
-      const result = await client.query(
-        'SELECT value FROM key_value_store WHERE key = $1',
-        ['db']
-      )
-      
-      if (result.rows.length === 0) {
-        return c.json({ error: 'Value not found' }, 404)
-      }
-      
-      return c.json({ value: result.rows[0].value })
-    } finally {
-      client.release()
+    const value = await kvStore.get('db')
+    
+    if (value === null) {
+      return c.json({ error: 'Value not found' }, 404)
     }
+    
+    return c.json({ value })
   } catch (error) {
     console.error('Database error:', error)
     return c.json({ error: 'Internal server error' }, 500)
@@ -112,19 +109,9 @@ app.post('/api/db/value', authenticateJWT, async (c) => {
       return c.json({ error: 'Value is required' }, 400)
     }
     
-    const client = await pool.connect()
-    try {
-      // Use UPSERT to insert or update the value
-      await client.query(
-        `INSERT INTO key_value_store (key, value) VALUES ($1, $2)
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
-        ['db', value]
-      )
-      
-      return c.json({ success: true, message: 'Value saved successfully' })
-    } finally {
-      client.release()
-    }
+    await kvStore.set('db', value)
+    
+    return c.json({ success: true, message: 'Value saved successfully' })
   } catch (error) {
     console.error('Database error:', error)
     return c.json({ error: 'Internal server error' }, 500)

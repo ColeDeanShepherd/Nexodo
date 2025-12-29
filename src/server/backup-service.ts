@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { Pool } from 'pg';
+import { KeyValueStore } from './key-value-store';
 
 interface GoogleTokens {
   access_token: string;
@@ -12,7 +12,7 @@ export class BackupService {
   private tokens: GoogleTokens | null = null;
   private folderId: string | null = null;
   
-  constructor(private pool: Pool) {
+  constructor(private kvStore: KeyValueStore) {
     console.log('✅ Google Drive backup service initialized (client-side auth)');
   }
 
@@ -100,21 +100,7 @@ export class BackupService {
   }
 
   private async getDatabaseValue(): Promise<string | null> {
-    const client = await this.pool.connect();
-    try {
-      const result = await client.query(
-        'SELECT value FROM key_value_store WHERE key = $1',
-        ['db']
-      );
-
-      if (result.rows.length === 0) {
-        return null;
-      }
-
-      return result.rows[0].value;
-    } finally {
-      client.release();
-    }
+    return await this.kvStore.get('db');
   }
 
   // Manual backup method for testing
