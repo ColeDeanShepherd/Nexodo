@@ -9,9 +9,10 @@ const maxReplicas = config.getNumber("maxReplicas") || 3;
 const cpuCores = config.getNumber("cpuCores") || 0.5;
 const memorySize = config.get("memorySize") || "1.0Gi";
 
-// Get secrets from config
-const jwtSecret = config.requireSecret("jwtSecret");
-const databaseUrl = config.requireSecret("databaseUrl");
+// Get secrets from environment variables (passed from GitHub Actions)
+const jwtSecret = pulumi.secret(process.env.JWT_SECRET || "");
+const databaseUrl = pulumi.secret(process.env.DATABASE_URL || "");
+const appPassword = pulumi.secret(process.env.APP_PASSWORD || "");
 
 // Get resource names
 const resourceGroupName = config.get("resourceGroupName") || "nexodo-rg";
@@ -111,6 +112,10 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
                 name: "database-url",
                 value: databaseUrl,
             },
+            {
+                name: "app-password",
+                value: appPassword,
+            },
         ],
     },
     template: {
@@ -137,6 +142,10 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
                 {
                     name: "DATABASE_URL",
                     secretRef: "database-url",
+                },
+                {
+                    name: "APP_PASSWORD",
+                    secretRef: "app-password",
                 },
             ],
             probes: [

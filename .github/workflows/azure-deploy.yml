@@ -54,6 +54,9 @@ jobs:
           ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
           ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
           PULUMI_CONFIG: |
             {
               "nexodo-infra:resourceGroupName": "${{ env.RESOURCE_GROUP }}",
@@ -61,7 +64,8 @@ jobs:
               "nexodo-infra:environmentName": "${{ env.CONTAINER_APP_ENVIRONMENT }}",
               "nexodo-infra:containerAppName": "${{ env.CONTAINER_APP_NAME }}",
               "nexodo-infra:jwtSecret": "${{ secrets.JWT_SECRET }}",
-              "nexodo-infra:databaseUrl": "${{ secrets.DATABASE_URL }}"
+              "nexodo-infra:databaseUrl": "${{ secrets.DATABASE_URL }}",
+              "nexodo-infra:appPassword": "${{ secrets.APP_PASSWORD }}"
             }
 
   build-and-deploy:
@@ -103,6 +107,7 @@ jobs:
             PORT=3000
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
+            APP_PASSWORD=${{ secrets.APP_PASSWORD }}
 
       - name: Logout from Azure
         run: az logout
