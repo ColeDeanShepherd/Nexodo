@@ -93,12 +93,6 @@ jobs:
           acrName: ${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}
           containerAppName: ${{ env.CONTAINER_APP_NAME }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
-          environmentVariables: |
-            NODE_ENV=production
-            PORT=3000
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            APP_PASSWORD=${{ secrets.APP_PASSWORD }}
 
       - name: Logout from Azure
         run: az logout
