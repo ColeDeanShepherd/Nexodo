@@ -7,6 +7,7 @@ import { BackupService } from './backup-service'
 import { SchedulerService } from './scheduler-service'
 import { KeyValueStore } from './key-value-store'
 import { PostgresKeyValueStore } from './postgres-key-value-store'
+import { AzureBlobKeyValueStore } from './azure-blob-key-value-store'
 
 const app = new Hono()
 
@@ -44,7 +45,12 @@ const pool = new Pool({
 })
 
 // Create key-value store abstraction
-const kvStore: KeyValueStore = new PostgresKeyValueStore(pool)
+//const kvStore: KeyValueStore = new PostgresKeyValueStore(pool)
+const kvStore: KeyValueStore = new AzureBlobKeyValueStore(
+  process.env.AZURE_STORAGE_ACCOUNT_NAME!,
+  process.env.AZURE_STORAGE_ACCOUNT_KEY!,
+  'datastore'
+)
 
 // Initialize backup services
 const backupService = new BackupService(kvStore)

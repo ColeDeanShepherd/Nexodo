@@ -13,6 +13,8 @@ const memorySize = config.get("memorySize") || "1.0Gi";
 const jwtSecret = pulumi.secret(process.env.JWT_SECRET || "");
 const databaseUrl = pulumi.secret(process.env.DATABASE_URL || "");
 const appPassword = pulumi.secret(process.env.APP_PASSWORD || "");
+const azureStorageAccountName = pulumi.secret(process.env.AZURE_STORAGE_ACCOUNT_NAME || "");
+const azureStorageAccountKey = pulumi.secret(process.env.AZURE_STORAGE_ACCOUNT_KEY || "");
 
 // Get resource names
 const resourceGroupName = config.get("resourceGroupName") || "nexodo-rg";
@@ -116,6 +118,14 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
                 name: "app-password",
                 value: appPassword,
             },
+            {
+                name: "azure-storage-account-name",
+                value: azureStorageAccountName,
+            },
+            {
+                name: "azure-storage-account-key",
+                value: azureStorageAccountKey,
+            },
         ],
     },
     template: {
@@ -146,6 +156,14 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
                 {
                     name: "APP_PASSWORD",
                     secretRef: "app-password",
+                },
+                {
+                    name: "AZURE_STORAGE_ACCOUNT_NAME",
+                    secretRef: "azure-storage-account-name",
+                },
+                {
+                    name: "AZURE_STORAGE_ACCOUNT_KEY",
+                    secretRef: "azure-storage-account-key",
                 },
             ],
             probes: [

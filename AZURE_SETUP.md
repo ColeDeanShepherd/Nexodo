@@ -98,6 +98,8 @@ Go to your GitHub repository settings and add the following secrets:
 8. **JWT_SECRET** - A secure random string for JWT signing
 9. **DATABASE_URL** - Your PostgreSQL database connection string
 10. **APP_PASSWORD** - The password protecting the app's data.
+11. **AZURE_STORAGE_ACCOUNT_NAME** - The name of your Azure Storage account for data storage (e.g., `nexododatastore`)
+12. **AZURE_STORAGE_ACCOUNT_KEY** - The access key for your Azure Storage account
 
 ## Step 4: Deploy via GitHub Actions
 

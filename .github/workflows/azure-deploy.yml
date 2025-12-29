@@ -62,6 +62,8 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          AZURE_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
+          AZURE_STORAGE_ACCOUNT_KEY: ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
           PULUMI_CONFIG: |
             {
               "nexodo-infra:resourceGroupName": "${{ env.RESOURCE_GROUP }}",
@@ -93,7 +95,7 @@ jobs:
           acrName: ${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}
           containerAppName: ${{ env.CONTAINER_APP_NAME }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
-          environmentVariables: NODE_ENV=production PORT=3000 JWT_SECRET=secretref:jwt-secret DATABASE_URL=secretref:database-url APP_PASSWORD=secretref:app-password
+          environmentVariables: NODE_ENV=production PORT=3000 JWT_SECRET=secretref:jwt-secret DATABASE_URL=secretref:database-url APP_PASSWORD=secretref:app-password AZURE_STORAGE_ACCOUNT_NAME=secretref:azure-storage-account-name AZURE_STORAGE_ACCOUNT_KEY=secretref:azure-storage-account-key
 
       - name: Logout from Azure
         run: az logout
