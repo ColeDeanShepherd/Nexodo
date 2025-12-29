@@ -97,23 +97,23 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
         registries: [{
             server: registry.loginServer,
             username: registryUsername,
-            passwordSecretRef: "registry-password",
+            passwordSecretRef: "REGISTRY_PASSWORD",
         }],
         secrets: [
             {
-                name: "registry-password",
+                name: "REGISTRY_PASSWORD",
                 value: registryPassword,
             },
             {
-                name: "jwt-secret",
+                name: "JWT_SECRET",
                 value: jwtSecret,
             },
             {
-                name: "database-url",
+                name: "DATABASE_URL",
                 value: databaseUrl,
             },
             {
-                name: "app-password",
+                name: "APP_PASSWORD",
                 value: appPassword,
             },
         ],
@@ -137,15 +137,15 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
                 },
                 {
                     name: "JWT_SECRET",
-                    secretRef: "jwt-secret",
+                    secretRef: "JWT_SECRET",
                 },
                 {
                     name: "DATABASE_URL",
-                    secretRef: "database-url",
+                    secretRef: "DATABASE_URL",
                 },
                 {
                     name: "APP_PASSWORD",
-                    secretRef: "app-password",
+                    secretRef: "APP_PASSWORD",
                 },
             ],
             probes: [

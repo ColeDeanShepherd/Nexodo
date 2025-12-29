@@ -108,41 +108,6 @@ Go to your GitHub repository settings and add the following secrets:
    - **build-and-deploy** job: Builds and deploys your Docker container
 4. Once complete, the infrastructure and app will be live
 
-## Step 5: Get Registry Credentials (First Deployment Only)
-
-After the first successful deployment, get the ACR credentials to update GitHub secrets:
-
-```bash
-az acr credential show --name nexodoacr --resource-group nexodo-rg
-```
-
-Update these GitHub secrets with the values:
-- **REGISTRY_USERNAME**: The username from the output
-- **REGISTRY_PASSWORD**: One of the passwords from the output
-
-## Infrastructure as Code Benefits
-
-The Pulumi TypeScript program ([infra/index.ts](infra/index.ts)) provides:
-
-- **Version Control**: Infrastructure changes are tracked in Git
-- **Consistency**: Same infrastructure deployed every time
-- **Type Safety**: TypeScript provides compile-time checking and IntelliSense
-- **Testable**: Write unit tests for your infrastructure code
-- **Automated**: No manual Azure Portal clicks required
-- **Rollback**: Git history allows reverting infrastructure changes
-- **Real Programming Language**: Full power of TypeScript - loops, functions, packages
-
-### Customizing Infrastructure
-
-Edit [infra/index.ts](infra/index.ts) to modify:
-- CPU/Memory allocation
-- Min/max replicas for scaling
-- Health check configurations
-- Environment variables
-- Add new Azure resources
-
-Or update [infra/Pulumi.prod.yaml](infra/Pulumi.prod.yaml) for configuration values.
-
 ## Step 5: Verify Deployment
 
 Get your app URL:
