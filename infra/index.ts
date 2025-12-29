@@ -200,7 +200,7 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
 
 // Export outputs
 export const containerRegistryLoginServer = registry.loginServer;
-export const containerRegistryName = registry.name;
+export const containerRegistryNameOutput = registry.name;
 export const containerAppFqdn = containerApp.configuration.apply(c => c?.ingress?.fqdn || "");
 export const containerAppUrl = containerApp.configuration.apply(c => 
     c?.ingress?.fqdn ? `https://${c.ingress.fqdn}` : ""
