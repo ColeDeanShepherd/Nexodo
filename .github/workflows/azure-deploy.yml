@@ -81,27 +81,37 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Get ACR credentials
+        id: acr-creds
+        run: |
+          REGISTRY_NAME="${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}"
+          REGISTRY_SERVER="${{ needs.deploy-infrastructure.outputs.containerRegistryLoginServer }}"
+          CREDS=$(az acr credential show --name $REGISTRY_NAME --resource-group ${{ env.RESOURCE_GROUP }})
+          USERNAME=$(echo $CREDS | jq -r '.username')
+          PASSWORD=$(echo $CREDS | jq -r '.passwords[0].value')
+          echo "::add-mask::$PASSWORD"
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
+          echo "server=$REGISTRY_SERVER" >> $GITHUB_OUTPUT
+
       - name: Log in to Azure Container Registry
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          echo "${{ steps.acr-creds.outputs.password }}" | docker login ${{ steps.acr-creds.outputs.server }} -u ${{ steps.acr-creds.outputs.username }} --password-stdin
 
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.CONTAINER_NAME }}:${{ github.sha }} \
-                       -t ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.CONTAINER_NAME }}:latest .
-          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.CONTAINER_NAME }}:${{ github.sha }}
-          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.CONTAINER_NAME }}:latest
+          docker build -t ${{ steps.acr-creds.outputs.server }}/${{ env.CONTAINER_NAME }}:${{ github.sha }} \
+                       -t ${{ steps.acr-creds.outputs.server }}/${{ env.CONTAINER_NAME }}:latest .
+          docker push ${{ steps.acr-creds.outputs.server }}/${{ env.CONTAINER_NAME }}:${{ github.sha }}
+          docker push ${{ steps.acr-creds.outputs.server }}/${{ env.CONTAINER_NAME }}:latest
 
       - name: Deploy to Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
         with:
-          acrName: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
+          acrName: ${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}
           containerAppName: ${{ env.CONTAINER_APP_NAME }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
-          imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.CONTAINER_NAME }}:${{ github.sha }}
+          imageToDeploy: ${{ steps.acr-creds.outputs.server }}/${{ env.CONTAINER_NAME }}:${{ github.sha }}
           environmentVariables: |
             NODE_ENV=production
             PORT=3000

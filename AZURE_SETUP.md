@@ -106,6 +106,7 @@ Go to your GitHub repository settings and add the following secrets:
 
 11. **JWT_SECRET** - A secure random string for JWT signing
 12. **DATABASE_URL** - Your PostgreSQL database connection string
+13. **APP_PASSWORD** - The password protecting the app's data.
 
 ## Step 4: Deploy via GitHub Actions
 
