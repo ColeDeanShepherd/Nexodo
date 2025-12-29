@@ -6,10 +6,6 @@ import * as jwt from 'jsonwebtoken'
 import { BackupService } from './backup-service'
 import { SchedulerService } from './scheduler-service'
 
-//if (process.env.NODE_ENV !== 'production') {
-  console.log('PWD: ', process.env.APP_PASSWORD)
-//}
-
 const app = new Hono()
 
 // JWT secret - use environment variable or default for development
