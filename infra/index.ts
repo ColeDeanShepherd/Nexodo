@@ -226,4 +226,3 @@ export const dataStorageAccountPrimaryKey = pulumi.all([resourceGroup.name, data
         }).then(keys => keys.keys[0].value)
 );
 export const dbContainerName = dbContainer.name;
-export const dbBlobName = dbBlob.name;
