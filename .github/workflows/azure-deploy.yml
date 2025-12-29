@@ -46,6 +46,7 @@ jobs:
           stack-name: prod
           work-dir: ./infra
           cloud-url: azblob://pulumi-state
+          upsert: true
         env:
           AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
           ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
