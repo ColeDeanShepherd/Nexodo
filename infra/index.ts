@@ -208,16 +208,6 @@ const dbContainer = new azure.storage.BlobContainer("dbContainer", {
     publicAccess: "None",
 });
 
-// Create "db" blob
-const dbBlob = new azure.storage.Blob("dbBlob", {
-    resourceGroupName: resourceGroup.name,
-    accountName: dataStorageAccount.name,
-    containerName: dbContainer.name,
-    blobName: "db",
-    type: "Block",
-    source: new pulumi.asset.StringAsset(""), // Empty blob initially
-});
-
 // Export outputs
 export const containerRegistryLoginServer = registry.loginServer;
 export const containerRegistryNameOutput = registry.name;
