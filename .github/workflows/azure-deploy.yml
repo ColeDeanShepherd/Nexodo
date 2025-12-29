@@ -86,45 +86,13 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Get ACR credentials
-        id: acr-creds
-        run: |
-          REGISTRY_NAME="${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}"
-          
-          # Get login server from ACR
-          REGISTRY_SERVER=$(az acr show --name $REGISTRY_NAME --resource-group ${{ env.RESOURCE_GROUP }} --query loginServer -o tsv)
-          
-          # Get credentials
-          CREDS=$(az acr credential show --name $REGISTRY_NAME --resource-group ${{ env.RESOURCE_GROUP }})
-          USERNAME=$(echo $CREDS | jq -r '.username')
-          PASSWORD=$(echo $CREDS | jq -r '.passwords[0].value')
-          
-          echo "::add-mask::$PASSWORD"
-          echo "username=$USERNAME" >> $GITHUB_OUTPUT
-          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
-          echo "server=$REGISTRY_SERVER" >> $GITHUB_OUTPUT
-          
-          echo "Registry server: $REGISTRY_SERVER"
-          echo "Username: $USERNAME"
-
-      - name: Log in to Azure Container Registry
-        run: |
-          echo "${{ steps.acr-creds.outputs.password }}" | docker login ${{ steps.acr-creds.outputs.server }} -u ${{ steps.acr-creds.outputs.username }} --password-stdin
-
-      - name: Build and push Docker image
-        run: |
-          docker build -t ${{ steps.acr-creds.outputs.server }}/${{ env.CONTAINER_NAME }}:${{ github.sha }} \
-                       -t ${{ steps.acr-creds.outputs.server }}/${{ env.CONTAINER_NAME }}:latest .
-          docker push ${{ steps.acr-creds.outputs.server }}/${{ env.CONTAINER_NAME }}:${{ github.sha }}
-          docker push ${{ steps.acr-creds.outputs.server }}/${{ env.CONTAINER_NAME }}:latest
-
-      - name: Deploy to Azure Container Apps
+      - name: Build and deploy Container App
         uses: azure/container-apps-deploy-action@v1
         with:
+          appSourcePath: ${{ github.workspace }}
           acrName: ${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}
           containerAppName: ${{ env.CONTAINER_APP_NAME }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
-          imageToDeploy: ${{ steps.acr-creds.outputs.server }}/${{ env.CONTAINER_NAME }}:${{ github.sha }}
           environmentVariables: |
             NODE_ENV=production
             PORT=3000
