@@ -200,11 +200,11 @@ const dataStorageAccount = new azure.storage.StorageAccount("dataStorageAccount"
     allowBlobPublicAccess: false,
 });
 
-// Create "db" container
+// Create "datastore" container
 const dbContainer = new azure.storage.BlobContainer("dbContainer", {
     resourceGroupName: resourceGroup.name,
     accountName: dataStorageAccount.name,
-    containerName: "db",
+    containerName: "datastore",
     publicAccess: "None",
 });
 

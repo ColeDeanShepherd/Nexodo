@@ -8,6 +8,6 @@ config:
   nexodo-infra:containerRegistryName: nexodoacr
   nexodo-infra:environmentName: nexodo-env
   nexodo-infra:containerAppName: nexodo-app
-  nexodo-infra:dataStorageAccountName: nexododatastore
+  nexodo-infra:dataStorageAccountName: nexodo
   # Secrets should be set via: pulumi config set --secret <key> <value>
   # Or via GitHub Actions using environment variables
