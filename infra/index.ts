@@ -83,7 +83,18 @@ const environment = new azure.app.ManagedEnvironment("environment", {
     },
 });
 
-// Create Container App first with custom domain (no cert binding)
+
+const managedCertificate = new azure.app.ManagedCertificate("managedCertificate", {
+    resourceGroupName: resourceGroup.name,
+    environmentName: environment.name,
+    managedCertificateName: "nexodo-cert",
+    location: location,
+    properties: {
+        subjectName: "nexodo.coledeanshepherd.com",
+        domainControlValidation: "CNAME",
+    },
+});
+
 const containerApp = new azure.app.ContainerApp("containerApp", {
     resourceGroupName: resourceGroup.name,
     containerAppName: containerAppName,
@@ -210,18 +221,6 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
         },
     },
 });
-
-// Create managed certificate (depends on container app having the custom domain)
-const managedCertificate = new azure.app.ManagedCertificate("managedCertificate", {
-    resourceGroupName: resourceGroup.name,
-    environmentName: environment.name,
-    managedCertificateName: "nexodo-cert",
-    location: location,
-    properties: {
-        subjectName: "nexodo.coledeanshepherd.com",
-        domainControlValidation: "CNAME",
-    },
-}, { dependsOn: [containerApp] });
 
 // Create Storage Account for Nexodo data (West US)
 const dataStorageAccount = new azure.storage.StorageAccount("dataStorageAccount", {
