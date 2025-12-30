@@ -83,19 +83,7 @@ const environment = new azure.app.ManagedEnvironment("environment", {
     },
 });
 
-// Create managed certificate for custom domain
-const managedCertificate = new azure.app.ManagedCertificate("managedCertificate", {
-    resourceGroupName: resourceGroup.name,
-    environmentName: environment.name,
-    managedCertificateName: "nexodo-cert",
-    location: location,
-    properties: {
-        subjectName: "nexodo.coledeanshepherd.com",
-        domainControlValidation: "CNAME",
-    },
-});
-
-// Create Container App
+// Create Container App first with custom domain (no cert binding)
 const containerApp = new azure.app.ContainerApp("containerApp", {
     resourceGroupName: resourceGroup.name,
     containerAppName: containerAppName,
@@ -109,8 +97,7 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
             allowInsecure: false,
             customDomains: [{
                 name: "nexodo.coledeanshepherd.com",
-                certificateId: managedCertificate.id,
-                bindingType: "SniEnabled",
+                bindingType: "Disabled",
             }],
         },
         registries: [{
@@ -222,6 +209,45 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
         },
     },
 });
+
+// Create managed certificate (depends on container app having the custom domain)
+const managedCertificate = new azure.app.ManagedCertificate("managedCertificate", {
+    resourceGroupName: resourceGroup.name,
+    environmentName: environment.name,
+    managedCertificateName: "nexodo-cert",
+    location: location,
+    properties: {
+        subjectName: "nexodo.coledeanshepherd.com",
+        domainControlValidation: "CNAME",
+    },
+}, { dependsOn: [containerApp] });
+
+// Update container app to use the certificate (will happen on next deployment)
+// Note: On first deployment, cert won't exist yet. On second deployment, this will bind it.
+// You can uncomment this block after the first successful deployment.
+/*
+const containerAppWithCert = new azure.app.ContainerApp("containerApp", {
+    resourceGroupName: resourceGroup.name,
+    containerAppName: containerAppName,
+    location: location,
+    managedEnvironmentId: environment.id,
+    configuration: {
+        ingress: {
+            external: true,
+            targetPort: 3000,
+            transport: "auto",
+            allowInsecure: false,
+            customDomains: [{
+                name: "nexodo.coledeanshepherd.com",
+                certificateId: managedCertificate.id,
+                bindingType: "SniEnabled",
+            }],
+        },
+        // ... rest of configuration (copy from above)
+    },
+    // ... rest of template (copy from above)
+}, { dependsOn: [managedCertificate] });
+*/
 
 // Create Storage Account for Nexodo data (West US)
 const dataStorageAccount = new azure.storage.StorageAccount("dataStorageAccount", {
