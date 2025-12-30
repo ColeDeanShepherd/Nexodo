@@ -97,7 +97,8 @@ const containerApp = new azure.app.ContainerApp("containerApp", {
             allowInsecure: false,
             customDomains: [{
                 name: "nexodo.coledeanshepherd.com",
-                bindingType: "Disabled",
+                certificateId: managedCertificate.id,
+                bindingType: "SniEnabled",
             }],
         },
         registries: [{
@@ -221,31 +222,6 @@ const managedCertificate = new azure.app.ManagedCertificate("managedCertificate"
         domainControlValidation: "CNAME",
     },
 }, { dependsOn: [containerApp] });
-
-// Update container app to use the certificate (will happen on next deployment)
-// Note: On first deployment, cert won't exist yet. On second deployment, this will bind it.
-// You can uncomment this block after the first successful deployment.
-const containerAppWithCert = new azure.app.ContainerApp("containerApp", {
-    resourceGroupName: resourceGroup.name,
-    containerAppName: containerAppName,
-    location: location,
-    managedEnvironmentId: environment.id,
-    configuration: {
-        ingress: {
-            external: true,
-            targetPort: 3000,
-            transport: "auto",
-            allowInsecure: false,
-            customDomains: [{
-                name: "nexodo.coledeanshepherd.com",
-                certificateId: managedCertificate.id,
-                bindingType: "SniEnabled",
-            }],
-        },
-        // ... rest of configuration (copy from above)
-    },
-    // ... rest of template (copy from above)
-}, { dependsOn: [managedCertificate] });
 
 // Create Storage Account for Nexodo data (West US)
 const dataStorageAccount = new azure.storage.StorageAccount("dataStorageAccount", {
