@@ -225,7 +225,6 @@ const managedCertificate = new azure.app.ManagedCertificate("managedCertificate"
 // Update container app to use the certificate (will happen on next deployment)
 // Note: On first deployment, cert won't exist yet. On second deployment, this will bind it.
 // You can uncomment this block after the first successful deployment.
-/*
 const containerAppWithCert = new azure.app.ContainerApp("containerApp", {
     resourceGroupName: resourceGroup.name,
     containerAppName: containerAppName,
@@ -247,7 +246,6 @@ const containerAppWithCert = new azure.app.ContainerApp("containerApp", {
     },
     // ... rest of template (copy from above)
 }, { dependsOn: [managedCertificate] });
-*/
 
 // Create Storage Account for Nexodo data (West US)
 const dataStorageAccount = new azure.storage.StorageAccount("dataStorageAccount", {
